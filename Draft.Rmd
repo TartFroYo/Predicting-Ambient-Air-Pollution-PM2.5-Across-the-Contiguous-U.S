@@ -1,6 +1,6 @@
 ---
 title: "Draft"
-author: "Aileen Li"
+author: "Aileen Li, Nyah Strickland"
 date: "2023-04-18"
 output: html_document
 editor_options: 
