@@ -11,13 +11,6 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Title and Introduction
-Write a narrative introduction containing:
-A description of the modeling approaches you have chosen for your comparison;
-An explanation of how the predictor variables were chosen for your model;
-Any exploratory analysis that was done with the data (e.g. correlations, scatterplots, boxplots, histograms, etc.) in order to learn about relationships in the data;
-Your expectation for what the RMSE performance of your model should be.
-
 
 ```{r}
 library(tidyverse)
@@ -26,38 +19,4 @@ origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25
 
 
 ```
-
-Wrangling
-This section should include any wrangling or transformations of the data that were done prior to modeling. Code should be included throughout and 
-a textual explanation should be included to explain any wrangling operations.
-
-Results
-Describe the development of your 3 prediction models (or 4 models, if working in a group) and
-how you compared their performance. 
-Be sure to describe the splitting of training and testing datasets 
-and the use of cross-validation to evaluate prediction metrics. 
-Remember that the primary metric for your prediction model will be root-mean-squared error (RMSE). 
-Your results should include 
-at least one visualization demonstrating the prediction performance of your models. 
-You should also include 
-a table summarizing the prediction metrics (including RMSE) across all of the models that you tried.
-
-Discussion
-Putting it all together, what did you learn from your data and your model performance?
-• Answer your Question posed above, citing any supporting statistics, visualizations, or results from the data or your models.
-• Reflect on the process of conducting this project. What was challenging, what have you learned from the process itself?
-• Reflect on the performance of your final prediction model. Did it perform as well as you originally expected? If not, why do you think it didn’t perform as well?
-• Include acknowledgments for any help received. If a group project, report the contribution of each member (i.e. who did what?).
-
-Formatting
-Create the report using R Markdown, with 
-headers for each section; 
-include comments to the R code; 
-include references (datasets, context). 
-The final report should be no more than 20 pages (the number of pages can vary greatly depending on the cleaning process).
-It is extremely important that you select pages when submitting on Gradescope.
-
-
-
-
 
