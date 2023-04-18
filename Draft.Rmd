@@ -1,5 +1,5 @@
 ---
-title: "Draft"
+title: "Predicting Ambient Air Pollution (PM2.5) Across the Contiguous U.S."
 author: "Aileen Li, Nyah Strickland"
 date: "2023-04-18"
 output: html_document
