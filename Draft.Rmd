@@ -12,7 +12,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 ## Predicting Ambient Air Pollution (PM2.5) Across the Contiguous U.S.
 
-  Air pollution has consequences for everyone, most especially for those with pre-existing conditions. To measure air pollution, we measure tiny particles or droplets in the air that are two and one-half microns or less in width called PM2.5. So being able to predict the average PM2.5 concentrations will allow us to keep people most susceptible safe as we look for and implement changes to improve the air quality in the region. We chose the predictors by ----. For our four models, we chose linear regression, k-nearest neighbors, bootstrapping, and random forest. Linear regression will model a linear relationship between the PM2.5 value in the atmosphere and the predictors. K-nearest neighbors will return predicted PM2.5 values based on their neighboring data points. Bootstrapping resamples the given data multiple times and returns predictions based on their average. Random forest makes an averaged prediction from a collection of independent decision trees. We predict that the RMSE performance of the bootstrapping model will be the best.
+  Air pollution has consequences for everyone, most especially for those with pre-existing conditions. Air pollution is measured in tiny particles or droplets in the air that are two and one-half microns or less in width called PM2.5. So being able to predict the average PM2.5 concentrations will allow us to keep people most vulnerable safe as we look for and implement changes to improve the air quality in the region.
+We chose the predictors by …
+For our four models, we chose linear regression, k-nearest neighbors, bootstrapping, and random forest. Linear regression models a linear relationship between the PM2.5 value in the atmosphere and the predictors. K-nearest neighbors (kNN) returns predicted PM2.5 values based on their neighboring data points. Bootstrapping resamples the given data multiple times and returns predictions based on their average. Random forest makes an averaged prediction from a collection of independent decision trees. We predict that the RMSE performance of the bootstrapping model will be the best, with a value of around 0.5.
 
 ```{r}
 library(tidyverse)
@@ -37,8 +39,11 @@ train <- training(dat_split)
 # Create standardize train data for kNN
 
 
-# Visualize linear relationship between predictors (lat, lon, state) and predicted value
-
+# Visualize linear relationship between predictors (lat, lon, state) and value
+# Visual of relationship between PM
+origin |> ggplot(aes(x=lon, y=value)) + 
+  geom_point() + geom_smooth() + 
+  labs(title="PM2.5 Concentration (mu g/m^3)", x="Longitude ()", y="PM2.5")
 
 ```
 
