@@ -44,32 +44,33 @@ train <- training(dat_split)
 
 ## Models 
 ```{r Linear Regression}
-## Create the recipe
+# Create the recipe for all models
 rec <- origin %>% 
     recipe(value ~ lat + lon + state) 
-rec
+# rec
 
+# Linear regr. model
 model1 <- linear_reg() %>% 
     set_engine("lm") %>% 
     set_mode("regression")
 
 wf1 <- workflow() %>% 
     add_recipe(rec) %>% 
-    add_model(model)
-wf1
+    add_model(model1)
+# wf1
 
-res <- fit(wf1, data = train)
+res1 <- fit(wf1, data = train)
 
-## Check performance on the complete training data
-res %>% 
+# Check performance of lin. regr. model on the complete training data
+res1 %>% 
     extract_fit_engine() %>% 
     summary()
 
-## Check performance using cross-validation
-folds <- vfold_cv(train, v = 10)
-folds
-res <- fit_resamples(wf1, resamples = folds)
-res %>% 
+# Check  lin. regr. model performance using cross-validation
+folds1 <- vfold_cv(train, v = 10)
+folds1
+res1 <- fit_resamples(wf1, resamples = folds1)
+res1 %>% 
     collect_metrics()
 ```
 
