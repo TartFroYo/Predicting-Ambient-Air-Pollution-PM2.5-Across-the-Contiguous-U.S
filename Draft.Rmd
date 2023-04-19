@@ -73,8 +73,62 @@ res1 <- fit_resamples(wf1, resamples = folds1)
 res1 %>% 
     collect_metrics()
 ```
+```{r kNN}
+## Scale the data for k-NN model
+origin_scaled <- origin %>% 
+    mutate(across(-value, scale))
 
+## Create the model
+model2 <- nearest_neighbor(neighbors = 5) %>% 
+    set_engine("kknn") %>% 
+    set_mode("classification")
 
+## Create workflow
+  wf2 <- workflow() %>% 
+    add_recipe(rec) %>% 
+    add_model(model2)
+
+## Fit the model on the full training dataset using the `fit()` function
+pokemon_kNN <- fit(wf2, data = train)
+
+## Check performance on the complete training data
+res2 %>% 
+    extract_fit_engine() %>% 
+    summary()
+
+## Check performance using cross-validation
+folds <- vfold_cv(train, v = 10)
+folds
+res2 <- fit_resamples(wf2, resamples = folds)
+res2 %>% 
+    collect_metrics()
+```
+
+```{r Bootstrap}
+## Create Bootstrap Model
+model3 <- nearest_neighbor(neighbors = 5) %>% 
+    set_engine("kknn") %>% 
+    set_mode("classification")
+
+## Create workflow
+  wf3 <- workflow() %>% 
+    add_recipe(rec) %>% 
+    add_model(model3)
+    
+```
+
+```{r Random Forests}
+## Create Random Forest Model
+model4 <- rand_forest(mtry = 5) %>% 
+    set_engine("ranger") %>% 
+    set_mode("regression")
+
+## Create workflow
+  wf4 <- workflow() %>% 
+    add_recipe(rec) %>% 
+    add_model(model4)
+
+```
 
 
 
