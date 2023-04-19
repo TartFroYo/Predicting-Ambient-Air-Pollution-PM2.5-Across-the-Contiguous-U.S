@@ -64,7 +64,7 @@ wf1 <- workflow() %>%
 
 res1 <- fit(wf1, data = train)
 
-# Check performance of linear regression model on the complete training data
+# Check performance of linear regression model on the training data
 res1 %>% 
     extract_fit_engine() %>% 
     summary()
@@ -78,15 +78,14 @@ res1 %>%
 ```
 
 ```{r kNN}
-# Find ideal k clusters
+# Find ideal k neighbors
+sqrt(nrow(train))
 
 # Scale the training data for k-NN model
-train_scales
-origin_scaled <- origin %>% 
-    mutate(across(-value, scale))
+train_scaled = train |> dplyr::select(where(is.numeric)) |> mutate(across(fips:aod, scale)) |> cbind(state=train$state,county=train$county,city=train$city)
 
 # Create kNN model
-model2 <- nearest_neighbor(neighbors = 5) %>% 
+model2 <- nearest_neighbor(neighbors = 26) %>% 
     set_engine("kknn") %>% 
     set_mode("regression")
 
@@ -96,7 +95,7 @@ model2 <- nearest_neighbor(neighbors = 5) %>%
     add_model(model2)
 
 # Fit the model on the full training dataset using the `fit()` function
-res2 <- fit(wf2, data = train)
+res2 <- fit(wf2, data = train_scaled)
 
 # Check performance on the complete training data
 res2 %>% 
@@ -106,7 +105,7 @@ res2 %>%
 # Check performance using cross-validation
 folds <- vfold_cv(train, v = 10)
 folds
-res2 <- fit_resamples(wf2, resamples = folds) #error Assigned data `orig_rows` must be compatible with existing data.
+res2 <- fit_resamples(wf2, resamples = folds) # error Assigned data `orig_rows` must be compatible with existing data.
 res2 %>% 
     collect_metrics()
 ```
