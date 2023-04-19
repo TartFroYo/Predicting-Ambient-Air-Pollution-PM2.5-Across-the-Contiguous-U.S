@@ -24,13 +24,12 @@ origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25
 ```
 ## Wrangling
 ```{r Predictors}
-## Use 80% of data for training
-train <- origin %>% 
-    slice(1:40)
+## Split origin dataset into 80/20
+dat_split <- initial_split(origin, prop =.8)
+dat_split
 
-## Use 20% for testing
-test <- origin %>% 
-    slice(41:50)
+## Use 80% of data for training 
+train <- training(dat_split)
 
 # Visualize linear relationship between predictors (lat, lon, state) and predicted value
 
