@@ -54,6 +54,7 @@ origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~sta
 
 ## Models 
 ```{r Linear Regression}
+set.seed(123)
 # Create the recipe for all models
 rec <- train %>% 
     recipe(value ~ lat + lon + state) 
@@ -85,6 +86,7 @@ res1 %>%
 ```
 
 ```{r kNN}
+set.seed(123)
 # Find ideal k neighbors
 sqrt(nrow(train))
 
@@ -101,7 +103,7 @@ model2 <- nearest_neighbor(neighbors = 26) %>%
     add_recipe(rec) %>% 
     add_model(model2)
 
-# Fit the model on the full training dataset using the `fit()` function
+# Fit the model on the training dataset using the `fit()` function
 res2 <- fit(wf2, data = train_scaled)
 
 # Check performance on the complete training data
@@ -119,6 +121,7 @@ res2 %>%
 ```
 
 ```{r Boost}
+set.seed(123)
 # Preprocessing "recipe"
 preprocessing_recipe <- 
   recipes::recipe(value~lon+lat, data = training(dat_split)) %>%
@@ -164,6 +167,25 @@ knitr::kable(xgboost_best_params)
 # Final boost model
 xgboost_model_final <- xgboost_model %>% finalize_model(xgboost_best_params)
 
+res3 = xgboost_model_final %>% fit(formula = value ~ lon+lat, data = train)
+  extract_fit_engine() %>% 
+  summary()
+
+
+
+# Check performance using cross-validation
+
+folds3 <- vfold_cv(train, v = 10)
+# folds
+res3 <- fit_resamples(wf3, resamples = folds3) 
+res3 %>% 
+    collect_metrics()
+
+
+
+
+
+
 # Eval. model performance on test data
 train_processed <- bake(preprocessing_recipe,  new_data = training(dat_split))
 
@@ -172,16 +194,17 @@ train_prediction <- xgboost_model_final %>%
   fit(formula = value ~ lon+lat, data = train_processed) %>%
   # Predict the sale prices for the training data
   predict(new_data = train_processed) %>%
-  bind_cols(training(ames_split))
+  bind_cols(training(dat_split))
 
 xgboost_score_train <- train_prediction %>%
-  yardstick::metrics(sale_price, .pred) %>%
+  yardstick::metrics(value, .pred) %>%
   mutate(.estimate = format(round(.estimate, 2), big.mark = ","))
 knitr::kable(xgboost_score_train)
 ```
 
 
 ```{r Bootstrap}
+set.seed(123)
 # Create Bootstrap Model (resampling data)
 set.seed(123)
 model3 <- boost_tree() %>% 
@@ -214,6 +237,7 @@ Preprocessing requirements
 xgboost does not have a means to translate factor predictors to grouped splits. Factor/categorical predictors need to be converted to numeric values (e.g., dummy or indicator variables) for this engine. When using the formula method via fit.model_spec(), parsnip will convert factor columns to indicators using a one-hot encoding.
 
 ```{r Random Forest}
+set.seed(123)
 # Create Random Forest Model
 set.seed(123)
 # Use grid of tuning parameters
