@@ -43,6 +43,12 @@ origin |> ggplot(aes(x=lon, y=value)) +
   geom_point() + geom_smooth() + 
   labs(title="PM2.5 Concentration (mu g/m^3)", x="Longitude (degrees)", y="PM2.5")
 
+origin %>% ggplot(aes(x=lat, y=value)) + 
+  geom_point() + geom_smooth() + 
+  labs(title="PM2.5 Concentration (mu g/m^3)", x="Latitude (degrees)", y="PM2.5")
+  
+origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~state) + 
+  labs(title="PM2.5 Concentration (mu g/m^3)", x="State", y="PM2.5") 
 ```
 
 ## Models 
