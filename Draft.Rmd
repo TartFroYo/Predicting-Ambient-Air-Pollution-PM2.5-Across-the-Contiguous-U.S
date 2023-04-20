@@ -136,7 +136,39 @@ model4 <- rand_forest(mtry = 5) %>%
 
 ```
 
+## Results
+Describe the development of your 3 prediction models (or 4 models, if working in a group) and
+how you compared their performance. 
+Be sure to describe the splitting of training and testing datasets 
+and the use of cross-validation to evaluate prediction metrics. 
+Remember that the primary metric for your prediction model will be root-mean-squared error (RMSE). 
+Your results should include 
+at least one visualization demonstrating the prediction performance of your models. 
+You should also include 
+a table summarizing the prediction metrics (including RMSE) across all of the models that you tried.
+
+1. Based on test set performance, at what locations does your model give predictions that
+are closest and furthest from the observed values? What do you hypothesize are the
+reasons for the good or bad performance at these locations?
+2. What variables might predict where your model performs well or not? For example, are
+their regions of the country where the model does better or worse? Are there variables
+that are not included in this dataset that you think might improve the model performance
+if they were included in your model?
+3. There is interest in developing more cost-effect approaches to monitoring air pollution
+on the ground. Two candidates for replacing the use of ground-based monitors are
+numerical models like CMAQ and satellite-based observations such as AOD. How well do
+CMAQ and AOD predict ground-level concentrations of PM2.5? How does the prediction
+performance of your model change when CMAQ or aod are included (or not included) in
+the model?
+4. The dataset here did not include data from Alaska or Hawaii. Do you think your model
+will perform well or not in those two states? Explain your reasoning
 
 
+## Discussion
+Putting it all together, what did you learn from your data and your model performance?
+• Answer your Question posed above, citing any supporting statistics, visualizations, or results from the data or your models.
+• Reflect on the process of conducting this project. What was challenging, what have you learned from the process itself?
+• Reflect on the performance of your final prediction model. Did it perform as well as you originally expected? If not, why do you think it didn’t perform as well?
+• Include acknowledgments for any help received. If a group project, report the contribution of each member (i.e. who did what?).
 
 
