@@ -12,9 +12,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 ## Predicting Ambient Air Pollution (PM2.5) Across the Contiguous U.S.
 
-  Air pollution has consequences for everyone, most especially for those with pre-existing conditions. Air pollution is measured in tiny particles or droplets in the air that are two and one-half microns or less in width called PM2.5. So being able to predict the average PM2.5 concentrations will allow us to keep people most vulnerable safe as we look for and implement changes to improve the air quality in the region.
+  Air pollution has consequences for everyone, most especially for those with pre-existing conditions. Air pollution is measured in tiny particles or droplets in the air that are two and one-half microns or less in width called PM2.5. So being able to predict the average PM2.5 concentrations ($\mu$g/m$^3$) will allow us to keep people most vulnerable safe as we look for and implement changes to improve the air quality in the region.
 We chose the predictors by …
-For our four models, we chose linear regression, k-nearest neighbors, bootstrapping, and random forest. Linear regression models a linear relationship between the PM2.5 value in the atmosphere and the predictors. K-nearest neighbors (kNN) returns predicted PM2.5 values based on their neighboring data points. Bootstrapping resamples the given data multiple times and returns predictions based on their average. Random forest makes an averaged prediction from a collection of independent decision trees. We predict that the RMSE performance of the bootstrapping model will be the best, with a value of around 0.5.
+For our four models, we chose linear regression, k-nearest neighbors, xgboosting, and random forest. Linear regression models a linear relationship between the PM2.5 value in the atmosphere and the predictors. K-nearest neighbors (kNN) returns predicted PM2.5 values based on their neighboring data points. INSERT BOOSTING MODEL SENTENCE. Random forest makes an averaged prediction from a collection of independent decision trees. We predict that the RMSE performance of the bootstrapping model will be the best, with a value of around 0.5.
 
 ```{r}
 library(tidyverse)
@@ -42,15 +42,38 @@ train <- training(dat_split)
 # Visualize linear relationship between predictors (lat, lon, state) and value
 origin |> ggplot(aes(x=lon, y=value)) + 
   geom_point() + geom_smooth() + 
-  labs(title="PM2.5 Concentration (mu g/m^3)", x="Longitude (degrees)", y="PM2.5")
+  labs(title="PM2.5 Concentration vs Longitude", x="Longitude (degrees)", y="PM2.5 (mu g/m^3)")
 
 origin %>% ggplot(aes(x=lat, y=value)) + 
   geom_point() + geom_smooth() + 
-  labs(title="PM2.5 Concentration (mu g/m^3)", x="Latitude (degrees)", y="PM2.5")
+  labs(title="PM2.5 Concentration vs Latitude", x="Latitude (degrees)", y="PM2.5 (mu g/m^3)")
   
 origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~state) + 
-  labs(title="PM2.5 Concentration (mu g/m^3)", x="State", y="PM2.5") 
+  labs(title="PM2.5 Concentration by State", x="PM2.5 (mu g/m^3)", y="Frequency (Monitors)") +
+  theme(legend.position="none",strip.text.x = element_text(margin = margin()))
 ```
+
+## Predictor Reduction
+```{r}
+# Scale dataset
+
+
+# Covar. matrix
+
+
+# Eigenval.s and eigenvec.s
+
+
+# PCA
+
+# Data transformation in new dimensional space
+
+
+```
+
+
+
+
 
 ## Models 
 ```{r Linear Regression}
