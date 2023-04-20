@@ -122,11 +122,11 @@ res2 %>%
 # Preprocessing "recipe"
 preprocessing_recipe <- 
   recipes::recipe(value~lon+lat, data = training(dat_split)) %>%
-  # convert categorical variables to factors
+  # Convert categorical variables to factors
   recipes::step_string2factor(all_nominal()) %>%
-  # combine low frequency factor levels
+  # Combine low frequency factor levels
   recipes::step_other(all_nominal(), threshold = 0.01) %>%
-  # remove no variance predictors which provide no predictive information 
+  # Remove no variance predictors which provide no predictive information 
   recipes::step_nzv(all_nominal()) %>%
   prep()
 
@@ -156,32 +156,27 @@ xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds3,
   control = tune::control_grid(verbose = TRUE))
 
 # Find hyper parameter values which performed best at minimizing RMSE
-xgboost_tuned %>%
-  tune::show_best(metric = "rmse") %>%
-  knitr::kable()
+xgboost_tuned %>% tune::show_best(metric = "rmse") %>%knitr::kable()
 # Isolate the best performing hyperparameter values.
-xgboost_best_params <- xgboost_tuned %>%
-  tune::select_best("rmse")
+xgboost_best_params <- xgboost_tuned %>% tune::select_best("rmse")
 knitr::kable(xgboost_best_params)
 
 # Final boost model
-xgboost_model_final <- xgboost_model %>% 
-  finalize_model(xgboost_best_params)
+xgboost_model_final <- xgboost_model %>% finalize_model(xgboost_best_params)
 
 # Eval. model performance on test data
 train_processed <- bake(preprocessing_recipe,  new_data = training(dat_split))
 
 train_prediction <- xgboost_model_final %>%
-# fit the model on all the training data
+  # Fit the model on all the training data
   fit(formula = value ~ lon+lat, data = train_processed) %>%
-  # predict the sale prices for the training data
+  # Predict the sale prices for the training data
   predict(new_data = train_processed) %>%
   bind_cols(training(ames_split))
 
 xgboost_score_train <- train_prediction %>%
   yardstick::metrics(sale_price, .pred) %>%
   mutate(.estimate = format(round(.estimate, 2), big.mark = ","))
-
 knitr::kable(xgboost_score_train)
 ```
 
