@@ -111,15 +111,8 @@ res2 %>%
     collect_metrics()
 ```
 
-```{r Bootstrap test}
-model3 = boost_tree( mtry = integer(), trees = integer(), min_n = integer(),
-  tree_depth = integer(), learn_rate = numeric(), loss_reduction = numeric(),
-  sample_size = numeric(), stop_iter = integer()) %>%
-  set_engine("xgboost") %>%
-  set_mode("regression") %>%
-  translate()
-
-# preprocessing "recipe"
+```{r Boost}
+# Preprocessing "recipe"
 preprocessing_recipe <- 
   recipes::recipe(value~lon+lat, data = training(dat_split)) %>%
   # convert categorical variables to factors
@@ -130,11 +123,7 @@ preprocessing_recipe <-
   recipes::step_nzv(all_nominal()) %>%
   prep()
 
-folds3 <- 
-  recipes::bake(
-    preprocessing_recipe, 
-    new_data = training(dat_split)
-  ) %>%  
+folds3 <- recipes::bake(preprocessing_recipe, new_data = training(dat_split)) %>%  
   rsample::vfold_cv(v = 5)
 
 # XGBoost model specification
@@ -142,31 +131,51 @@ xgboost_model <- parsnip::boost_tree(mode = "regression", trees = 1000, min_n = 
   tree_depth = tune(), learn_rate = tune(), loss_reduction = tune()) %>%
   set_engine("xgboost", objective = "reg:squarederror")
 
-# grid specification
-xgboost_params <- 
-  dials::parameters(min_n(), tree_depth(), learn_rate(), loss_reduction())
+# Grid specification
+xgboost_params <- dials::parameters(min_n(), tree_depth(), learn_rate(), loss_reduction())
 
 xgboost_grid <- dials::grid_max_entropy(xgboost_params, size = 60)
+
 knitr::kable(head(xgboost_grid))
 
-xgboost_wf <- 
-  workflows::workflow() %>%
+xgboost_wf <- workflows::workflow() %>%
   add_model(xgboost_model) %>% 
   add_formula(value~lon+lat)
 
-# hyperparameter tuning
-xgboost_tuned <- tune::tune_grid(
-  object = xgboost_wf,
-  resamples = folds3,
-  grid = xgboost_grid,
-  metrics = yardstick::metric_set(rmse, rsq, mae),
-  control = tune::control_grid(verbose = TRUE)
-)
+# Hyperparameter tuning
+# Takes a long time to run
+xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds3,
+  grid = xgboost_grid, metrics = yardstick::metric_set(rmse, rsq, mae),
+  control = tune::control_grid(verbose = TRUE))
 
+# Find hyper parameter values which performed best at minimizing RMSE
 xgboost_tuned %>%
   tune::show_best(metric = "rmse") %>%
   knitr::kable()
+# Isolate the best performing hyperparameter values.
+xgboost_best_params <- xgboost_tuned %>%
+  tune::select_best("rmse")
+knitr::kable(xgboost_best_params)
 
+# Final boost model
+xgboost_model_final <- xgboost_model %>% 
+  finalize_model(xgboost_best_params)
+
+# Eval. model performance on test data
+train_processed <- bake(preprocessing_recipe,  new_data = training(dat_split))
+
+train_prediction <- xgboost_model_final %>%
+# fit the model on all the training data
+  fit(formula = value ~ lon+lat, data = train_processed) %>%
+  # predict the sale prices for the training data
+  predict(new_data = train_processed) %>%
+  bind_cols(training(ames_split))
+
+xgboost_score_train <- train_prediction %>%
+  yardstick::metrics(sale_price, .pred) %>%
+  mutate(.estimate = format(round(.estimate, 2), big.mark = ","))
+
+knitr::kable(xgboost_score_train)
 ```
 
 
