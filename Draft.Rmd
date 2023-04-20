@@ -20,8 +20,7 @@ For our four models, we chose linear regression, k-nearest neighbors, bootstrapp
 library(tidyverse)
 library(tidymodels)
 library(broom)
-library(carat)
-library(randomForest)
+library(caret)
 library(plotROC)
 
 origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25_data.csv.gz")
