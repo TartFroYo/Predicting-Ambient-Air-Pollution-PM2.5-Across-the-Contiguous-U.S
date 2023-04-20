@@ -110,7 +110,8 @@ res2 %>%
 ```
 
 ```{r Bootstrap}
-# Create Bootstrap Model
+# Create Bootstrap Model (resampling data)
+set.seed(123)
 model3 <- nearest_neighbor(neighbors = 5) %>% 
     set_engine("kknn") %>% 
     set_mode("classification")
