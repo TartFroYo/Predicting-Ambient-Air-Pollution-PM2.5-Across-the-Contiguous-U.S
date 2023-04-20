@@ -28,6 +28,7 @@ origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25
 
 ## Wrangling
 ```{r Predictors}
+set.seed(123)
 # Split origin dataset into 80/20
 dat_split <- initial_split(origin, prop =.8)
 dat_split
@@ -43,6 +44,12 @@ origin |> ggplot(aes(x=lon, y=value)) +
   geom_point() + geom_smooth() + 
   labs(title="PM2.5 Concentration (mu g/m^3)", x="Longitude (degrees)", y="PM2.5")
 
+origin %>% ggplot(aes(x=lat, y=value)) + 
+  geom_point() + geom_smooth() + 
+  labs(title="PM2.5 Concentration (mu g/m^3)", x="Latitude (degrees)", y="PM2.5")
+  
+origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~state) + 
+  labs(title="PM2.5 Concentration (mu g/m^3)", x="State", y="PM2.5") 
 ```
 
 ## Models 
@@ -211,17 +218,48 @@ res3 %>%
 Preprocessing requirements
 xgboost does not have a means to translate factor predictors to grouped splits. Factor/categorical predictors need to be converted to numeric values (e.g., dummy or indicator variables) for this engine. When using the formula method via fit.model_spec(), parsnip will convert factor columns to indicators using a one-hot encoding.
 
-```{r Random Forests}
+```{r Random Forest}
 # Create Random Forest Model
-model4 <- rand_forest(mtry = 5) %>% 
+set.seed(123)
+# Use grid of tuning parameters
+model4 <- rand_forest(mtry = tune("mtry"),
+                     min_n = tune("min_n")) %>% 
     set_engine("ranger") %>% 
     set_mode("regression")
-
 # Create workflow
   wf4 <- workflow() %>% 
     add_recipe(rec) %>% 
     add_model(model4)
+  
+# Fit the model on the full training dataset using the `fit()` function
+res4 <- fit(wf4, data = train_scaled)
+# Check performance on the complete training data
+res4 %>% 
+    extract_fit_engine() %>% 
+    summary()
+# Check performance using cross-validation
+folds4 <- vfold_cv(train, v = 10)
+folds4
+# Determine performance of model by resampling
+res4 <- fit_resamples(wf4, folds4) # ERROR Assigned data `orig_rows` must be compatible with existing data.
+res4 %>% 
+    collect_metrics()
 
+## Try a grid of tuning parameters
+model <- rand_forest(mtry = tune("mtry"),
+                     min_n = tune("min_n")) %>% 
+    set_engine("ranger") %>% 
+    set_mode("regression")
+
+wf4 <- workflow() %>% 
+    add_recipe(rec) %>% 
+    add_model(model)
+
+## Fit model over grid of tuning parameters
+res <- tune_grid(wf4, resamples = folds4, grid = 20)
+
+res %>% 
+    collect_metrics()
 ```
 
 ## Results
