@@ -28,6 +28,7 @@ origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25
 
 ## Wrangling
 ```{r Predictors}
+set.seed(123)
 # Split origin dataset into 80/20
 dat_split <- initial_split(origin, prop =.8)
 dat_split
