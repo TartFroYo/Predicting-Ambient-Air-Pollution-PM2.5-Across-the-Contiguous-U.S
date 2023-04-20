@@ -209,9 +209,9 @@ res3 %>%
 Preprocessing requirements
 xgboost does not have a means to translate factor predictors to grouped splits. Factor/categorical predictors need to be converted to numeric values (e.g., dummy or indicator variables) for this engine. When using the formula method via fit.model_spec(), parsnip will convert factor columns to indicators using a one-hot encoding.
 
+```{r Random Forest}
 # Create Random Forest Model
 set.seed(123)
-# Create Random Forest Model
 # Use grid of tuning parameters
 model4 <- rand_forest(mtry = tune("mtry"),
                      min_n = tune("min_n")) %>% 
@@ -251,6 +251,7 @@ res <- tune_grid(wf4, resamples = folds4, grid = 20)
 
 res %>% 
     collect_metrics()
+```
 
 ## Results
 Describe the development of your 3 prediction models (or 4 models, if working in a group) and
