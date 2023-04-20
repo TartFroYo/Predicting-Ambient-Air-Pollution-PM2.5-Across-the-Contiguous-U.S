@@ -190,25 +190,6 @@ knitr::kable(xgboost_best_params)
 # Final boost model
 xgboost_model_final <- xgboost_model %>% finalize_model(xgboost_best_params)
 
-res3 = xgboost_model_final %>% fit(formula = value ~ lon+lat, data = train)
-  extract_fit_engine() %>% 
-  summary()
-
-
-
-# Check performance using cross-validation
-
-folds3 <- vfold_cv(train, v = 10)
-# folds
-res3 <- fit_resamples(wf3, resamples = folds3) 
-res3 %>% 
-    collect_metrics()
-
-
-
-
-
-
 # Eval. model performance on test data
 train_processed <- bake(preprocessing_recipe,  new_data = training(dat_split))
 
@@ -223,37 +204,6 @@ xgboost_score_train <- train_prediction %>%
   yardstick::metrics(value, .pred) %>%
   mutate(.estimate = format(round(.estimate, 2), big.mark = ","))
 knitr::kable(xgboost_score_train)
-```
-
-
-```{r Bootstrap}
-set.seed(123)
-# Create Bootstrap Model (resampling data)
-set.seed(123)
-model3 <- boost_tree() %>% 
-    set_engine("xgboost") %>%
-    set_mode("regression")
-
-# Create workflow
-  wf3 <- workflow() %>% 
-    add_recipe(rec) %>% 
-    add_model(model3)
-    
-# Fit the model on the training dataset using the `fit()` function
-res3 <- fit(wf3, data = train) # Error in if (is.numeric(args$trees) && args$trees < 0) { : missing value where TRUE/FALSE needed
-
-# Check performance on the complete training data
-res3 %>% 
-    extract_fit_engine() %>% 
-    summary()
-
-# Check performance using cross-validation
-
-folds3 <- vfold_cv(train, v = 10)
-# folds
-res3 <- fit_resamples(wf3, resamples = folds3) 
-res3 %>% 
-    collect_metrics()
 ```
 
 Preprocessing requirements
