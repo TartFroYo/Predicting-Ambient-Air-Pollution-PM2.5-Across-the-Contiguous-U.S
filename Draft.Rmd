@@ -103,9 +103,9 @@ res2 %>%
     summary()
 
 # Check performance using cross-validation
-folds <- vfold_cv(train, v = 10)
-folds
-res2 <- fit_resamples(wf2, resamples = folds) # ERROR Assigned data `orig_rows` must be compatible with existing data.
+folds2 <- vfold_cv(train, v = 10)
+# folds
+res2 <- fit_resamples(wf2, resamples = folds2) # ERROR Assigned data `orig_rows` must be compatible with existing data.
 res2 %>% 
     collect_metrics()
 ```
