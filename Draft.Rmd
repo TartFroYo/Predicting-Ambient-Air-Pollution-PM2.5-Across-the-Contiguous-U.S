@@ -48,7 +48,7 @@ origin |> ggplot(aes(x=lon, y=value)) +
 ## Models 
 ```{r Linear Regression}
 # Create the recipe for all models
-rec <- origin %>% 
+rec <- train %>% 
     recipe(value ~ lat + lon + state) 
 
 # Linear regr. model
