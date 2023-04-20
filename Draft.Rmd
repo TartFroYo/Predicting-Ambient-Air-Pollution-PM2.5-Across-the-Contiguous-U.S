@@ -22,6 +22,7 @@ library(tidymodels)
 library(broom)
 library(caret)
 library(plotROC)
+library(vip)
 
 origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25_data.csv.gz")
 ```
@@ -36,7 +37,7 @@ dat_split
 # Use 80% of data for training 
 train <- training(dat_split)
 
-# Create standardize train data for kNN
+# Create standardize train data for kNN and PCA
 
 
 # Visualize linear relationship between predictors (lat, lon, state) and value
@@ -76,6 +77,41 @@ origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~sta
 
 
 ## Models 
+```{r Lin Regr.}
+rec1 <- recipe(value ~ ., data = train) %>% 
+                      step_YeoJohnson(all_numeric(), -all_outcomes()) %>% 
+                      step_normalize(all_numeric(), -all_outcomes())
+
+model1 <- linear_reg() %>% 
+    set_engine("lm") %>% 
+    set_mode("regression")
+
+fit1 = model1 |> fit(value ~ ., data=train)
+summary(fit1$fit)
+
+tidy(fit1)
+glance(fit1)
+vip(fit1)
+
+wf1 <- workflow() %>% 
+    add_recipe(rec1) %>% 
+    add_model(model1)
+
+res1 = wf1 |> last_fit(split=dat_split)
+res1 |> collect_metrics()
+
+
+library(MASS)
+fit <- lm(value ~ .,data=train)
+step <- stepAIC(fit, direction="both")
+step$anova
+
+```
+
+
+
+
+
 ```{r Linear Regression}
 set.seed(123)
 # Create the recipe for all models
@@ -143,7 +179,10 @@ res2 %>%
     collect_metrics()
 ```
 
-```{r Boost}
+Preprocessing requirements
+xgboost does not have a means to translate factor predictors to grouped splits. Factor/categorical predictors need to be converted to numeric values (e.g., dummy or indicator variables) for this engine. When using the formula method via fit.model_spec(), parsnip will convert factor columns to indicators using a one-hot encoding.
+
+```{r Xgboost}
 set.seed(123)
 # Preprocessing "recipe"
 preprocessing_recipe <- 
@@ -206,8 +245,7 @@ xgboost_score_train <- train_prediction %>%
 knitr::kable(xgboost_score_train)
 ```
 
-Preprocessing requirements
-xgboost does not have a means to translate factor predictors to grouped splits. Factor/categorical predictors need to be converted to numeric values (e.g., dummy or indicator variables) for this engine. When using the formula method via fit.model_spec(), parsnip will convert factor columns to indicators using a one-hot encoding.
+
 
 ```{r Random Forest}
 set.seed(123)
