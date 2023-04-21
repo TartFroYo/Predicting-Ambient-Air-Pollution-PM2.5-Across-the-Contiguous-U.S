@@ -22,7 +22,6 @@ library(tidymodels)
 library(broom)
 library(caret)
 library(plotROC)
-library(vip)
 
 origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25_data.csv.gz")
 ```
@@ -78,20 +77,15 @@ origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~sta
 
 ## Models 
 ```{r Lin Regr.}
-rec1 <- recipe(value ~ ., data = train) %>% 
-                      step_YeoJohnson(all_numeric(), -all_outcomes()) %>% 
-                      step_normalize(all_numeric(), -all_outcomes())
-
 model1 <- linear_reg() %>% 
     set_engine("lm") %>% 
     set_mode("regression")
 
-fit1 = model1 |> fit(value ~ ., data=train)
-summary(fit1$fit)
+fit1 = model1 |> fit(value ~ ., data=train_scaled)
+x=summary(fit1$fit)$coefficients
 
 tidy(fit1)
 glance(fit1)
-vip(fit1)
 
 wf1 <- workflow() %>% 
     add_recipe(rec1) %>% 
@@ -102,8 +96,8 @@ res1 |> collect_metrics()
 
 
 library(MASS)
-fit <- lm(value ~ .,data=train)
-step <- stepAIC(fit, direction="both")
+fit <- lm(value ~ .,data=train_scaled)
+step <- stepAIC(fit, direction="forward")
 step$anova
 
 ```
