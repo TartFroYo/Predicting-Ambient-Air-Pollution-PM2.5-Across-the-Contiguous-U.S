@@ -167,7 +167,11 @@ res1 %>%
     collect_metrics()
 ```
 
+<<<<<<< HEAD
 ```{r kNN}
+=======
+```{r kNN uses scaled training data - ALL MODELS FAILED}
+>>>>>>> 8c212cd50a70361324fa24b08b455979e9d1c93b
 set.seed(123)
 # Find ideal k neighbors
 sqrt(nrow(train))
