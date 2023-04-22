@@ -65,12 +65,12 @@ import=tibble::rownames_to_column(import, 'variables')
 
 # take top 20 important variables
 import20 = import[1:20,]
+```
 
+```{r delete}
 # Use Information Gain for variable selection
 library(MASS)
-
 fit_lm = lm(value~, data=train)
-
 stepAIC(fit_lm, direction="backward", trace=FALSE)
 stepAIC(fit_lm, direction="forward", trace=FALSE)
 stepAIC(fit_lm, direction="both", trace=FALSE)
@@ -78,38 +78,17 @@ stepAIC(fit_lm, direction="both", trace=FALSE)
 # Use Recursive Feature Elimination method
 set.seed(123)
 cparam = rfeControl(functions=lmFuncs, method='repeatedcv', repeats=5, number=10, verbose=FALSE, returnResamp='all')
-
 profile=rfe(x=train_scaled, y=as.matrix(train$value), sizes=c(1:20),rfeControl=cparam)
 
 # Use Lasso for variable selection X
 y=train[,2]
-
 library(glmnet)
 feat_mod_select = cv.glmnet(train_scaled, train$value, standardize=TRUE, alpha=1)
-
 as.matrix(coef(features,features$lambda.min))
 
-# Scale dataset
-
-# Covar. matrix
-
-# Eigenval.s and eigenvec.s
-
-# PCA
-
-# Data transformation in new dimensional space
-
-```
-
-
-
-
-
-## Models 
-```{r}
+# fit randfom forest and get var. importance based on mean decr. in accuracy
 set.seed(123)
 library(party)
-# fit randfom forest and get var. importance based on mean decr. in accuracy
 train_num = train[,2:50] |> dplyr::select(where(is.numeric))
 cf1 = cforest(value ~ ., data=train_num, control=cforest_unbiased(mtry=2, ntree=50))
 # adj for corr. btw predictors
@@ -118,14 +97,17 @@ varimp(cf1, conditional=TRUE)
 varimpAUC(cf1)
 
 
+# Scale dataset
+# Covar. matrix
+# Eigenval.s and eigenvec.s
+# PCA
+# Data transformation in new dimensional space
 ```
 
 
 
 
-
-
-
+## Models 
 ```{r Lin Regr.}
 model1 <- linear_reg() %>% 
     set_engine("lm") %>% 
