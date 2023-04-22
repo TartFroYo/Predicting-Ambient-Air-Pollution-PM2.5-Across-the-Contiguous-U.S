@@ -22,6 +22,7 @@ library(tidymodels)
 library(broom)
 library(caret)
 library(plotROC)
+library(randomForest)
 
 origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25_data.csv.gz")
 ```
@@ -37,7 +38,8 @@ dat_split
 train <- training(dat_split)
 
 # Create standardize train data for kNN and PCA
-
+# excl. id and value
+train_scaled = train[,3:50] |> dplyr::select(where(is.numeric)) |> mutate(across(fips:aod, scale)) |> cbind(state=train$state,county=train$county,city=train$city)
 
 # Visualize linear relationship between predictors (lat, lon, state) and value
 origin |> ggplot(aes(x=lon, y=value)) + 
@@ -53,21 +55,49 @@ origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~sta
   theme(legend.position="none",strip.text.x = element_text(margin = margin()))
 ```
 
-## Predictor Reduction
+## Predictor/Feature Selection
 ```{r}
-# Scale dataset
+# Use Random Forest for variable selection
+rfmodel = randomForest(value~., data=train[,2:50])
+import=as.data.frame(importance(rfmodel)) |> arrange(desc(IncNodePurity))
+import=tibble::rownames_to_column(import, 'variables')
+# Now from this list, you can select the variables. Mostly, the top 20 variables are what we select. However, this is just an indicative value and may vary based upon the problem.
 
+# take top 20 important variables
+import20 = import[1:20,]
+
+# Use Information Gain for variable selection
+library(MASS)
+
+fit_lm = lm(value~, data=train)
+
+stepAIC(fit_lm, direction="backward", trace=FALSE)
+stepAIC(fit_lm, direction="forward", trace=FALSE)
+stepAIC(fit_lm, direction="both", trace=FALSE)
+
+# Use Recursive Feature Elimination method
+set.seed(123)
+cparam = rfeControl(functions=lmFuncs, method='repeatedcv', repeats=5, number=10, verbose=FALSE, returnResamp='all')
+
+profile=rfe(x=train_scaled, y=as.matrix(train$value), sizes=c(1:20),rfeControl=cparam)
+
+# Use Lasso for variable selection X
+y=train[,2]
+
+library(glmnet)
+feat_mod_select = cv.glmnet(train_scaled, train$value, standardize=TRUE, alpha=1)
+
+as.matrix(coef(features,features$lambda.min))
+
+# Scale dataset
 
 # Covar. matrix
 
-
 # Eigenval.s and eigenvec.s
-
 
 # PCA
 
 # Data transformation in new dimensional space
-
 
 ```
 
@@ -76,10 +106,32 @@ origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~sta
 
 
 ## Models 
+```{r}
+set.seed(123)
+library(party)
+# fit randfom forest and get var. importance based on mean decr. in accuracy
+train_num = train[,2:50] |> dplyr::select(where(is.numeric))
+cf1 = cforest(value ~ ., data=train_num, control=cforest_unbiased(mtry=2, ntree=50))
+# adj for corr. btw predictors
+varimp(cf1, conditional=TRUE)
+# more robust towards class imbalance
+varimpAUC(cf1)
+
+
+```
+
+
+
+
+
+
+
 ```{r Lin Regr.}
 model1 <- linear_reg() %>% 
     set_engine("lm") %>% 
     set_mode("regression")
+
+imp = varImp(model1, scale=FALSE)
 
 fit1 = model1 |> fit(value ~ ., data=train_scaled)
 x=summary(fit1$fit)$coefficients
@@ -143,8 +195,7 @@ set.seed(123)
 # Find ideal k neighbors
 sqrt(nrow(train))
 
-# Scale the training data for k-NN model
-train_scaled = train |> dplyr::select(where(is.numeric)) |> mutate(across(fips:aod, scale)) |> cbind(state=train$state,county=train$county,city=train$city)
+# Scale the training data for k-NN model in wrangling
 
 # Create kNN model
 model2 <- nearest_neighbor(neighbors = 26) %>% 
