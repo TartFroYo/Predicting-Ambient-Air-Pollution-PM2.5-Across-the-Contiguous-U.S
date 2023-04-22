@@ -160,6 +160,7 @@ varimpAUC(cf1)
 ```
 
 ## Models 
+
 ```{r Linear}
 set.seed(123)
 # Fit model and get summary
@@ -197,7 +198,7 @@ res1 %>%
     collect_metrics()
 ```
 
-```{r kNN}
+```{r kNN ALL MODELS FAILED}
 set.seed(123)
 # Find ideal k neighbors
 sqrt(nrow(train))
