@@ -224,7 +224,7 @@ res1 %>%
     collect_metrics()
 ```
 
-```{r kNN}
+```{r kNN ALL MODELS FAILED}
 set.seed(123)
 # Find ideal k neighbors
 sqrt(nrow(train))
