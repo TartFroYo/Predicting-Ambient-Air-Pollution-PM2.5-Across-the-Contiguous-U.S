@@ -41,9 +41,13 @@ train <- training(dat_split)
 
 # Create standardize train data for kNN and PCA
 # Omit value and id variables since these should not be scaled
+<<<<<<< HEAD
 # train_scaled for PCA
 train_scaled = train[,3:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) 
 #%>% cbind(state=train$state,county=train$county,city=train$city)
+=======
+train_scaled = train %>% select(-id) %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) %>% cbind(state=train$state,county=train$county,city=train$city)
+>>>>>>> 38b1173b074a8bd5d01817978ba5405967c9e4ee
 
 # train_knn for kNN model
 train_knn = train[,2:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) %>% cbind(state=train$state,county=train$county,city=train$city)
@@ -171,7 +175,7 @@ res1 %>%
     collect_metrics()
 ```
 
-```{r kNN ALL MODELS FAILED}
+```{r kNN uses scaled training data - ALL MODELS FAILED}
 set.seed(123)
 # Find ideal k neighbors
 sqrt(nrow(train))
