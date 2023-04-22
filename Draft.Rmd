@@ -129,38 +129,7 @@ import=tibble::rownames_to_column(import, 'variables')
 import10 = import[1:10,]
 ```
 
-```{r delete}
-# Use Information Gain for variable selection
-library(MASS)
-fit_lm = lm(value~, data=train)
-stepAIC(fit_lm, direction="backward", trace=FALSE)
-stepAIC(fit_lm, direction="forward", trace=FALSE)
-stepAIC(fit_lm, direction="both", trace=FALSE)
-
-# Use Recursive Feature Elimination method
-set.seed(123)
-cparam = rfeControl(functions=lmFuncs, method='repeatedcv', repeats=5, number=10, verbose=FALSE, returnResamp='all')
-profile=rfe(x=train_scaled, y=as.matrix(train$value), sizes=c(1:20),rfeControl=cparam)
-
-# Use Lasso for variable selection X
-y=train[,2]
-library(glmnet)
-feat_mod_select = cv.glmnet(train_scaled, train$value, standardize=TRUE, alpha=1)
-as.matrix(coef(features,features$lambda.min))
-
-# fit randfom forest and get var. importance based on mean decr. in accuracy
-set.seed(123)
-library(party)
-train_num = train[,2:50] |> dplyr::select(where(is.numeric))
-cf1 = cforest(value ~ ., data=train_num, control=cforest_unbiased(mtry=2, ntree=50))
-# adj for corr. btw predictors
-varimp(cf1, conditional=TRUE)
-# more robust towards class imbalance
-varimpAUC(cf1)
-```
-
 ## Models 
-
 ```{r Linear}
 set.seed(123)
 # Fit model and get summary
@@ -198,7 +167,7 @@ res1 %>%
     collect_metrics()
 ```
 
-```{r kNN ALL MODELS FAILED}
+```{r kNN}
 set.seed(123)
 # Find ideal k neighbors
 sqrt(nrow(train))
