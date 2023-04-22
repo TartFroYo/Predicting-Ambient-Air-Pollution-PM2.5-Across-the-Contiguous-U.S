@@ -14,15 +14,18 @@ knitr::opts_chunk$set(echo = TRUE)
 
   Air pollution has consequences for everyone, most especially for those with pre-existing conditions. Air pollution is measured in tiny particles or droplets in the air that are two and one-half microns or less in width called PM2.5. So being able to predict the average PM2.5 concentrations ($\mu$g/m$^3$) will allow us to keep people most vulnerable safe as we look for and implement changes to improve the air quality in the region.
 We chose the predictors by …
-For our four models, we chose linear regression, k-nearest neighbors, xgboosting, and random forest. Linear regression models a linear relationship between the PM2.5 value in the atmosphere and the predictors. K-nearest neighbors (kNN) returns predicted PM2.5 values based on their neighboring data points. INSERT BOOSTING MODEL SENTENCE. Random forest makes an averaged prediction from a collection of independent decision trees. We predict that the RMSE performance of the bootstrapping model will be the best, with a value of around 0.5.
+For our four models, we chose linear regression, k-nearest neighbors, xgboosting, and random forest. Linear regression models a linear relationship between the PM2.5 value in the atmosphere and the predictors. K-nearest neighbors (kNN) returns predicted PM2.5 values based on their neighboring data points. **INSERT BOOSTING MODEL SENTENCE.** Random forest makes an averaged prediction from a collection of independent decision trees. We predict that the RMSE performance of the bootstrapping model will be the best, with a value of around 0.5.  
 
 ```{r}
 library(tidyverse)
 library(tidymodels)
 library(broom)
+library(xgboost)
 library(caret)
 library(plotROC)
 library(randomForest)
+library(factoextra)
+library(MASS)
 
 origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25_data.csv.gz")
 ```
@@ -38,7 +41,8 @@ train <- training(dat_split)
 
 # Create standardize train data for kNN and PCA
 # Omit value and id variables since these should not be scaled
-train_scaled = train[,3:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) #%>% cbind(state=train$state,county=train$county,city=train$city)
+train_scaled = train[,3:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) 
+#%>% cbind(state=train$state,county=train$county,city=train$city)
 
 # Calculate principal components on scaled training data
 pca_result <- train_scaled %>% dplyr::select(where(is.numeric)) %>%
@@ -104,14 +108,14 @@ dim(trunc); dim(train_scaled)
 # Visualize linear relationship between predictors (lat, lon, state) and value
 origin %>% ggplot(aes(x=lon, y=value)) + 
   geom_point() + geom_smooth() + 
-  labs(title="PM2.5 Concentration (mu g/m^3)", x="Longitude (degrees)", y="PM2.5")
+  labs(title="PM2.5 Concentration vs Longitude", x="Longitude (Degrees)", y="PM2.5 (mu g/m^3)")
 
 origin %>% ggplot(aes(x=lat, y=value)) + 
   geom_point() + geom_smooth() + 
-  labs(title="PM2.5 Concentration (mu g/m^3)", x="Latitude (degrees)", y="PM2.5")
+  labs(title="PM2.5 Concentration vs Latitude", x="Latitude (Degrees)", y="PM2.5 (mu g/m^3)")
 
 origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~state) + 
-  labs(title="PM2.5 Concentration (mu g/m^3)", x="State", y="PM2.5") 
+  labs(title="PM2.5 Concentration", x="PM2.5 (mu g/m^3)", y="Frequency (Monitors)") + theme(legend.position='none')
 ```
 
 ## Predictor/Feature Selection
@@ -120,7 +124,6 @@ origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~sta
 rfmodel = randomForest(value~., data=train[,2:50])
 import=as.data.frame(importance(rfmodel)) |> arrange(desc(IncNodePurity))
 import=tibble::rownames_to_column(import, 'variables')
-# Now from this list, you can select the variables. Mostly, the top 20 variables are what we select. However, this is just an indicative value and may vary based upon the problem.
 
 # take top 10 important variables
 import10 = import[1:10,]
@@ -154,49 +157,20 @@ cf1 = cforest(value ~ ., data=train_num, control=cforest_unbiased(mtry=2, ntree=
 varimp(cf1, conditional=TRUE)
 # more robust towards class imbalance
 varimpAUC(cf1)
-
-# Scale dataset
-# Covar. matrix
-# Eigenval.s and eigenvec.s
-# PCA
-# Data transformation in new dimensional space
 ```
 
 ## Models 
-```{r Lin Regr.}
-model1 <- linear_reg() %>% 
-    set_engine("lm") %>% 
-    set_mode("regression")
-
-imp = varImp(model1, scale=FALSE)
-
-fit1 = model1 |> fit(value ~ ., data=train_scaled)
-x=summary(fit1$fit)$coefficients
-
-tidy(fit1)
-glance(fit1)
-
-wf1 <- workflow() %>% 
-    add_recipe(rec1) %>% 
-    add_model(model1)
-
-res1 = wf1 |> last_fit(split=dat_split)
-res1 |> collect_metrics()
-
-
-library(MASS)
-fit <- lm(value ~ .,data=train_scaled)
-step <- stepAIC(fit, direction="forward")
-step$anova
-
-```
-
-
-```{r Linear Regression}
+```{r Linear}
 set.seed(123)
+# Fit model and get summary
+fit_lm = lm(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000, data=train)
+step <- stepAIC(fit_lm, direction="backward", trace=TRUE)
+# Drops county_area, popdens_county, and log_nei_2008_pm25_sum_10000
+
 # Create the recipe for all models
-rec <- train %>% 
-    recipe(value ~ ) 
+rec1 <- train %>% 
+    recipe(value ~ CMAQ+lat+lon+aod+zcta+log_nei_2008_pm25_sum_10000) 
 
 # Linear regr. model
 model1 <- linear_reg() %>% 
@@ -204,11 +178,11 @@ model1 <- linear_reg() %>%
     set_mode("regression")
 
 wf1 <- workflow() %>% 
-    add_recipe(rec) %>% 
+    add_recipe(rec1) %>% 
     add_model(model1)
 # wf1
 
-res1 <- fit(wf1, data = train)
+res1 <- wf1 |> parsnip::fit(data = train)
 
 # Check performance of linear regression model on the training data
 res1 %>% 
@@ -216,9 +190,8 @@ res1 %>%
     summary()
 
 # Check linear regression model performance using cross-validation
-
 folds1 <- vfold_cv(train, v = 10)
-folds1
+# folds1
 res1 <- fit_resamples(wf1, resamples = folds1)
 res1 %>% 
     collect_metrics()
@@ -230,6 +203,8 @@ set.seed(123)
 sqrt(nrow(train))
 
 # Scale the training data for k-NN model in wrangling
+train_scaled = train[,3:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) 
+#%>% cbind(state=train$state,county=train$county,city=train$city)
 
 # Create kNN model
 model2 <- nearest_neighbor(neighbors = 26) %>% 
