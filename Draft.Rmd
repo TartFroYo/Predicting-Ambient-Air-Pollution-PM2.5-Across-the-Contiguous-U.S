@@ -163,7 +163,7 @@ varimpAUC(cf1)
 ```
 
 ## Models 
-```{r Lin Regr.}
+```{r Lin Regr. DELETE}
 model1 <- linear_reg() %>% 
     set_engine("lm") %>% 
     set_mode("regression")
@@ -192,7 +192,7 @@ step$anova
 ```
 
 
-```{r Linear Regression}
+```{r Linear Regression KEEP}
 set.seed(123)
 # Create the recipe for all models
 rec <- train %>% 
