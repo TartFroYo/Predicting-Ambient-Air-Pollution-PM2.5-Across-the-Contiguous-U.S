@@ -41,8 +41,12 @@ train <- training(dat_split)
 
 # Create standardize train data for kNN and PCA
 # Omit value and id variables since these should not be scaled
+# train_scaled for PCA
 train_scaled = train[,3:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) 
 #%>% cbind(state=train$state,county=train$county,city=train$city)
+
+# train_knn for kNN model
+train_knn = train[,2:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) %>% cbind(state=train$state,county=train$county,city=train$city)
 
 # Calculate principal components on scaled training data
 pca_result <- train_scaled %>% dplyr::select(where(is.numeric)) %>%
@@ -172,9 +176,9 @@ set.seed(123)
 # Find ideal k neighbors
 sqrt(nrow(train))
 
-# Scale the training data for k-NN model in wrangling
-train_scaled = train[,3:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) 
-#%>% cbind(state=train$state,county=train$county,city=train$city)
+# Create recipe
+rec2 = train_knn |> recipe(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000)
 
 # Create kNN model
 model2 <- nearest_neighbor(neighbors = 26) %>% 
@@ -183,11 +187,11 @@ model2 <- nearest_neighbor(neighbors = 26) %>%
 
 # Create workflow
   wf2 <- workflow() %>% 
-    add_recipe(rec) %>% 
+    add_recipe(rec2) %>% 
     add_model(model2)
 
 # Fit the model on the training dataset using the `fit()` function
-res2 <- fit(wf2, data = train_scaled)
+res2 <- parsnip::fit(wf2, data = train_knn)
 
 # Check performance on the complete training data
 res2 %>% 
@@ -195,7 +199,6 @@ res2 %>%
     summary()
 
 # Check performance using cross-validation
-
 folds2 <- vfold_cv(train, v = 10)
 # folds
 res2 <- fit_resamples(wf2, resamples = folds2) # ERROR Assigned data `orig_rows` must be compatible with existing data.
@@ -210,7 +213,8 @@ xgboost does not have a means to translate factor predictors to grouped splits. 
 set.seed(123)
 # Preprocessing "recipe"
 preprocessing_recipe <- 
-  recipes::recipe(value~lon+lat, data = training(dat_split)) %>%
+  recipes::recipe(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000, data = training(dat_split)) %>%
   # Convert categorical variables to factors
   recipes::step_string2factor(all_nominal()) %>%
   # Combine low frequency factor levels
@@ -232,23 +236,23 @@ xgboost_params <- dials::parameters(min_n(), tree_depth(), learn_rate(), loss_re
 
 xgboost_grid <- dials::grid_max_entropy(xgboost_params, size = 60)
 
-knitr::kable(head(xgboost_grid))
+head(xgboost_grid)
 
 xgboost_wf <- workflows::workflow() %>%
   add_model(xgboost_model) %>% 
   add_formula(value~lon+lat)
 
 # Hyperparameter tuning
-# Takes a long time to run
+# Takes a long time to run, 5 min
 xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds3,
-  grid = xgboost_grid, metrics = yardstick::metric_set(rmse, rsq, mae),
+  grid = xgboost_grid, metrics = yardstick::metric_set(rmse, rsq),
   control = tune::control_grid(verbose = TRUE))
 
 # Find hyper parameter values which performed best at minimizing RMSE
 xgboost_tuned %>% tune::show_best(metric = "rmse") %>%knitr::kable()
 # Isolate the best performing hyperparameter values.
 xgboost_best_params <- xgboost_tuned %>% tune::select_best("rmse")
-knitr::kable(xgboost_best_params)
+xgboost_best_params
 
 # Final boost model
 xgboost_model_final <- xgboost_model %>% finalize_model(xgboost_best_params)
@@ -258,7 +262,8 @@ train_processed <- bake(preprocessing_recipe,  new_data = training(dat_split))
 
 train_prediction <- xgboost_model_final %>%
   # Fit the model on all the training data
-  fit(formula = value ~ lon+lat, data = train_processed) %>%
+  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000, data = train_processed) %>%
   # Predict the sale prices for the training data
   predict(new_data = train_processed) %>%
   bind_cols(training(dat_split))
@@ -266,7 +271,7 @@ train_prediction <- xgboost_model_final %>%
 xgboost_score_train <- train_prediction %>%
   yardstick::metrics(value, .pred) %>%
   mutate(.estimate = format(round(.estimate, 2), big.mark = ","))
-knitr::kable(xgboost_score_train)
+xgboost_score_train
 ```
 
 
@@ -274,7 +279,6 @@ knitr::kable(xgboost_score_train)
 ```{r Random Forest}
 set.seed(123)
 # Create Random Forest Model
-set.seed(123)
 # Use grid of tuning parameters
 model4 <- rand_forest(mtry = tune("mtry"),
                      min_n = tune("min_n")) %>% 
