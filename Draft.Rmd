@@ -41,8 +41,7 @@ train <- training(dat_split)
 
 # Create standardize train data for kNN and PCA
 # Omit value and id variables since these should not be scaled
-train_scaled = train[,3:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) 
-#%>% cbind(state=train$state,county=train$county,city=train$city)
+train_scaled = train %>% select(-id) %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) %>% cbind(state=train$state,county=train$county,city=train$city)
 
 # Calculate principal components on scaled training data
 pca_result <- train_scaled %>% dplyr::select(where(is.numeric)) %>%
@@ -167,7 +166,7 @@ res1 %>%
     collect_metrics()
 ```
 
-```{r kNN ALL MODELS FAILED}
+```{r kNN uses scaled training data - ALL MODELS FAILED}
 set.seed(123)
 # Find ideal k neighbors
 sqrt(nrow(train))
