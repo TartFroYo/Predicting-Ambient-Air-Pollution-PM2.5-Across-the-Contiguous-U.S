@@ -33,26 +33,85 @@ set.seed(123)
 # Split origin dataset into 80/20
 dat_split <- initial_split(origin, prop =.8)
 dat_split
-
 # Use 80% of data for training 
 train <- training(dat_split)
 
 # Create standardize train data for kNN and PCA
-# excl. id and value
-train_scaled = train[,3:50] |> dplyr::select(where(is.numeric)) |> mutate(across(fips:aod, scale)) |> cbind(state=train$state,county=train$county,city=train$city)
+# Omit value and id variables since these should not be scaled
+train_scaled = train[,3:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) #%>% cbind(state=train$state,county=train$county,city=train$city)
+
+# Calculate principal components on scaled training data
+pca_result <- train_scaled %>% dplyr::select(where(is.numeric)) %>%
+  prcomp()
+
+# Plot scree plot
+pca_result %>% fviz_eig()
+
+# Plot table to show explained variance % by PCs
+summary(pca_result)
+
+# Threshold of Explained Variance = 80%
+# Calculated the sum of PCs with highest explained variance until threshold was meant
+0.3253 + 0.09749 + 0.07984 + 0.06501 + 0.05196 + 0.04147 + 0.03445 +
+0.02926 + 0.02563 + 0.0220 + 0.02127 + 0.0188
+
+PC1 <- pca_result$rotation[,1]
+PC1_scores <- abs(PC1)
+PC1_scores_ordered <- sort(PC1_scores, decreasing = TRUE)
+names(PC1_scores_ordered)
+
+# Reduce dimension of dataset
+trunc <- pca_result$x[,1:12] %*% t(pca_result$rotation[,1:12])
+# Add the center (and re-scale) back to data 
+if(all(pca_result$scale != FALSE)){
+  trunc <- scale(trunc, center = FALSE , scale=1/pca_result$scale) 
+  } 
+if(all(pca_result$center != FALSE)){ 
+  trunc <- scale(trunc, center = -1 * pca_result$center, scale=FALSE) 
+  } 
+dim(trunc); dim(train_scaled)
+
+# unhelpful plot -- delete
+# plot(pca_result$x[,1], pca_result$x[,2])
+
+# Show which features have the most influence
+as_tibble(pca_result$rotation, 
+          rownames = "variable") %>% 
+    ggplot(aes(variable, PC1)) +
+    geom_point() +
+    coord_flip()
+
+as_tibble(pca_result$rotation, 
+          rownames = "variable") %>% 
+    ggplot(aes(variable, PC2)) +
+    geom_point() +
+    coord_flip()
+
+# Plot clusters between PC1 and PC2 using a biplot
+fviz_pca_var(pca_result)
+
+# Reduce dimension of dataset
+trunc <- pca_result$x[,1:12] %*% t(pca_result$rotation[,1:12])
+# Add the center (and re-scale) back to data 
+if(all(pca_result$scale != FALSE)){
+  trunc <- scale(trunc, center = FALSE , scale=1/pca_result$scale) 
+  } 
+if(all(pca_result$center != FALSE)){ 
+  trunc <- scale(trunc, center = -1 * pca_result$center, scale=FALSE) 
+  } 
+dim(trunc); dim(train_scaled)
 
 # Visualize linear relationship between predictors (lat, lon, state) and value
-origin |> ggplot(aes(x=lon, y=value)) + 
+origin %>% ggplot(aes(x=lon, y=value)) + 
   geom_point() + geom_smooth() + 
-  labs(title="PM2.5 Concentration vs Longitude", x="Longitude (degrees)", y="PM2.5 (mu g/m^3)")
+  labs(title="PM2.5 Concentration (mu g/m^3)", x="Longitude (degrees)", y="PM2.5")
 
 origin %>% ggplot(aes(x=lat, y=value)) + 
   geom_point() + geom_smooth() + 
-  labs(title="PM2.5 Concentration vs Latitude", x="Latitude (degrees)", y="PM2.5 (mu g/m^3)")
-  
+  labs(title="PM2.5 Concentration (mu g/m^3)", x="Latitude (degrees)", y="PM2.5")
+
 origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~state) + 
-  labs(title="PM2.5 Concentration by State", x="PM2.5 (mu g/m^3)", y="Frequency (Monitors)") +
-  theme(legend.position="none")
+  labs(title="PM2.5 Concentration (mu g/m^3)", x="State", y="PM2.5") 
 ```
 
 ## Predictor/Feature Selection
