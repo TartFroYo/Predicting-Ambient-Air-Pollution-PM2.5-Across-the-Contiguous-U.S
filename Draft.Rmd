@@ -52,7 +52,7 @@ origin %>% ggplot(aes(x=lat, y=value)) +
   
 origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~state) + 
   labs(title="PM2.5 Concentration by State", x="PM2.5 (mu g/m^3)", y="Frequency (Monitors)") +
-  theme(legend.position="none",strip.text.x = element_text(margin = margin()))
+  theme(legend.position="none")
 ```
 
 ## Predictor/Feature Selection
@@ -63,8 +63,8 @@ import=as.data.frame(importance(rfmodel)) |> arrange(desc(IncNodePurity))
 import=tibble::rownames_to_column(import, 'variables')
 # Now from this list, you can select the variables. Mostly, the top 20 variables are what we select. However, this is just an indicative value and may vary based upon the problem.
 
-# take top 20 important variables
-import20 = import[1:20,]
+# take top 10 important variables
+import10 = import[1:10,]
 ```
 
 ```{r delete}
@@ -96,16 +96,12 @@ varimp(cf1, conditional=TRUE)
 # more robust towards class imbalance
 varimpAUC(cf1)
 
-
 # Scale dataset
 # Covar. matrix
 # Eigenval.s and eigenvec.s
 # PCA
 # Data transformation in new dimensional space
 ```
-
-
-
 
 ## Models 
 ```{r Lin Regr.}
@@ -137,14 +133,11 @@ step$anova
 ```
 
 
-
-
-
 ```{r Linear Regression}
 set.seed(123)
 # Create the recipe for all models
 rec <- train %>% 
-    recipe(value ~ lat + lon + state) 
+    recipe(value ~ ) 
 
 # Linear regr. model
 model1 <- linear_reg() %>% 
