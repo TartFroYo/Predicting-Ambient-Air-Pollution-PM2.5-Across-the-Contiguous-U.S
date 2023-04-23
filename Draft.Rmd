@@ -278,7 +278,7 @@ train_processed <- bake(preprocessing_recipe,  new_data = training(dat_split))
 train_prediction <- xgboost_model_final %>%
   # Fit the model on all the training data
   parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000, data = train_processed) %>%
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data = train_processed) %>%
   # Predict value for the training data
   predict(new_data = train_processed) %>%
   bind_cols(training(dat_split))
