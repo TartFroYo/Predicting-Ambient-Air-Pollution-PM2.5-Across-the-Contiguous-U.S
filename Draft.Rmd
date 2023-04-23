@@ -147,7 +147,7 @@ For linear regression (LR), the unscaled training set was used since variance do
 set.seed(123)
 # Fit model and get summary
 fit_lm = lm(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000, data=train)
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=train)
 step <- stepAIC(fit_lm, direction="backward", trace=TRUE)
 # Drops county_area, popdens_county, and log_nei_2008_pm25_sum_10000
 
@@ -182,7 +182,7 @@ res1 %>%
 
 ### 2. K-Nearest Neighbors
 
-The K-Nearest Neighbors (KNN) model finds the predicted 'value' by taking the average 'value' of its k neighbors. We first found the ideal number of k neighbors. This was determined by finding the square root of the number of observations, which was rounded to be 26. We fit the model on the training set data and checked its performance using two methods: the first was fitting the model to extracting the MAE and MSE and the second was 10-fold cross validation. RMSE is the square root of MSE and we were able to confirm its value in the cross-validation by comparing it to the square root of MSE attained from the first method. We found that after 10-fold cross validation, the RMSE was 1.79. This indicates that the model does not predict well.
+The K-Nearest Neighbors (KNN) model finds the predicted 'value' by taking the average 'value' of its k neighbors. We first found the ideal number of k neighbors. This was determined by finding the square root of the number of observations, which was rounded to be 26. We fit the model on the training set data and checked its performance using two methods: the first was fitting the model to extracting the MAE and MSE and the second was 10-fold cross validation. RMSE is the square root of MSE and we were able to confirm its value in the cross-validation by comparing it to the square root of MSE attained from the first method. We found that after 10-fold cross validation, the RMSE was 1.78. This indicates that the model does not predict well.
 
 ```{r kNearestNeighbors}
 # kNN uses scaled data called train_knn
@@ -192,7 +192,7 @@ sqrt(nrow(train))
 
 # Create recipe
 rec2 = train_knn |> recipe(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000)
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000)
 
 # Create kNN model
 model2 <- nearest_neighbor(neighbors = 26) %>% 
@@ -222,14 +222,14 @@ res2 %>%
 
 ### 3. Extreme Gradient Boost Regression
 
-The Extreme Gradient Boosting (XGB) model performs by training weak learners, models that have low prediction accuracy, sequentially to become a single strong learner, a model that has strong prediction accuracy. We preprocess the training set to make the predictive modeling process more accurate and smoother by prepping (estimates the quantities for 'train_scaled') and baking (assigns prepped data to an object) the data. The aforementioned top 10 predictors were used in this preprocessing recipe. Moreover, the categorical variables were factored and features with no variance were removed before this data was baked. Then, this processed data is assigned to 'folds3' and resampled on 5 subsets of the training set. We tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was .71, indicating the XG Boosting is a good model. 
+The Extreme Gradient Boosting (XGB) model performs by training weak learners, models that have low prediction accuracy, sequentially to become a single strong learner, a model that has strong prediction accuracy. We preprocess the training set to make the predictive modeling process more accurate and smoother by prepping (estimates the quantities for 'train_scaled') and baking (assigns prepped data to an object) the data. The aforementioned top 10 predictors were used in this preprocessing recipe. Moreover, the categorical variables were factored and features with no variance were removed before this data was baked. Then, this processed data is assigned to 'folds3' and resampled on 5 subsets of the training set. We tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was .42, indicating the XG Boosting is a good model. 
 
 ```{r Xgboost}
 set.seed(123)
 # Preprocessing recipe
 preprocessing_recipe <- 
   recipes::recipe(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000, data = training(dat_split)) %>%
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data = training(dat_split)) %>%
   # Convert categorical variables to factors
   recipes::step_string2factor(all_nominal()) %>%
   # Combine low frequency factor levels
@@ -256,7 +256,7 @@ head(xgboost_grid)
 xgboost_wf <- workflows::workflow() %>%
   add_model(xgboost_model) %>% 
   add_formula(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000)
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000)
 
 # Hyperparameter tuning
 # Takes a long time to run, 5-8 min
@@ -297,7 +297,7 @@ The Random Forest (RF) Regression model performs by training multiple different 
 set.seed(123)
 # Preprocessing recipe
 rec4 <- recipe(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000, data=train) %>%
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=train) %>%
   step_log(all_outcomes()) |> 
   step_normalize(all_numeric_predictors()) |> 
   step_dummy(all_nominal_predictors())
@@ -324,7 +324,7 @@ doParallel::registerDoParallel(cl)
 
 # Takes long time to load 2 min
 tune_res <- wf4 |> tune_grid(resamples = folds4, grid = rf_grid, metrics=metric_set(rmse,rsq), control = tune::control_grid(verbose = TRUE))
-tune_res
+# tune_res
 
 # Find hyper parameter values which performed best at minimizing RMSE
 tune_res %>% tune::show_best(metric = "rmse") %>%knitr::kable()
@@ -340,7 +340,7 @@ train_processed2 <- bake(preprocessing_recipe,  new_data = training(dat_split))
 
 train_prediction2 = rf_model_final |> 
   parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000, data=train_processed2) |> 
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=train_processed2) |> 
   predict(new_data=train_processed2) |> 
   bind_cols(training(dat_split))
   
@@ -356,46 +356,37 @@ The following code creates a table containing the RMSE and RSQ estimates for eac
 
 ```{r}
 # Create table of prediction metrics from training data
-linreg1 = res1 |> collect_metrics() |> as.data.frame()
-linreg1 = cbind(linreg1[,1], round(linreg1[,3],2))
-knn1 = res2 %>% collect_metrics() |> as.data.frame()
-knn1 = cbind(knn1[,1], round(knn1[,3],2))
-xgboost1 = xgboost_score_train |> filter(.metric!='mae') |> as.data.frame()
-xgboost1 = cbind(xgboost1[,1], xgboost1[,3])
-ranfor1 = rf_score_train |> filter(.metric!='mae') |> as.data.frame()
-ranfor1 = cbind(ranfor1[,1], ranfor1[,3])
+linreg = res1 |> collect_metrics() |> as.data.frame()
+linreg = cbind(linreg[,1], round(linreg[,3],2))
+knn = res2 %>% collect_metrics() |> as.data.frame()
+knn = cbind(knn[,1], round(knn[,3],2))
+xgboost = xgboost_score_train |> filter(.metric!='mae') |> as.data.frame()
+xgboost = cbind(xgboost[,1], xgboost[,3])
+ranfor = rf_score_train |> filter(.metric!='mae') |> as.data.frame()
+ranfor = cbind(ranfor[,1], ranfor[,3])
 
-compare1 = c('LR','LR','KNN','KNN','XGB','XGB','RF','RF') |> cbind(rbind(linreg1,knn1,xgboost1,ranfor1))
-colnames(compare1) = c('model','estimator','estimate') 
-compare1 = as.data.frame(compare1) |> pivot_wider(names_from=estimator, values_from=estimate)
-tibble(compare1)
+compare = c('LR','LR','KNN','KNN','XGB','XGB','RF','RF') |> cbind(rbind(linreg,knn,xgboost,ranfor))
+colnames(compare) = c('model','estimator','estimate') 
+compare = as.data.frame(compare) |> pivot_wider(names_from=estimator, values_from=estimate)
+compare
 
-# Get pred. metrics from models based on testing data
-# LR
+# Fit RF model to testing data
+test_processed <- bake(preprocessing_recipe,  new_data = testing(dat_split))
 
+# Get pred. metrics based on testing data
+test_prediction = xgboost_model_final |> 
+  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=test_processed) |> 
+  predict(new_data=test_processed) |> 
+  bind_cols(testing(dat_split))
 
-
-
-# KNN
-
-
-
-
-# XGB
-
-
-
-
-# RF
-
-
-
-
-
-
+xgb_score_test = test_prediction |> 
+  yardstick::metrics(value, .pred) |> 
+  mutate(.estimate=format(round(.estimate, 2), big.mark=","))
+xgb_score_test
 ```
 
-As seen on the table, LR has the lowest r-squared estimate and highest RMSE while RF is the opposite. KNN has the second highest RMSE with a moderate r-squared estimate. And XGB has both a high RMSE and r-squared estimate. Random Forest model has the lowest RMSE of 0.62 and highest r-squared estimate. Since we are choosing the best model by RMSE, the Random Forest model is thus the best and final model based on our procedure.
+As seen on the table, LR has the highest RMSE and lowest r-squared estimate. KNN has the second highest RMSE with a moderate R-squared estimate. And XGB has the lowest RMSE of 0.42 and the highest R-squared estimate of 0.98. Random Forest model has the both the second lowest RMSE and second highest R-squared estimate. Since we are choosing the best model by the best RMSE, which is the lowest one, the Xgboost model is thus the best and final model based on our procedure. After fitting the Xgboost model to the testing data, we find that its RMSE and R-squared is 0.39 and 0.98 respectively. Since we are trying to predict annual average ambient air pollution of a given monitor, then these statistics mean that the amount of error in our model's predictions is about 0.39 $\mu$g/m$^3$, and that the features we used in our model are able to explain 98% of the variance in the data, which means this model fits the data well.
 
 ## Results
 Your results should include 
