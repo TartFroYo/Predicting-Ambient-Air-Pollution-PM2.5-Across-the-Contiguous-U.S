@@ -556,12 +556,11 @@ The model with only 'CMAQ' and 'aod' as features has an RMSE of 1.99. Since it i
 
 **4. The dataset here did not include data from Alaska or Hawaii. Do you think your model will perform well or not in those two states? Explain your reasoning.**
 
-Given that the top 5 features were 'CMAQ', 'lat', 'county_area', 'lon', and 'aod'. We think that XG Boost model will not perform well since our model did not  the original dataset included states of varying sizes with different climates and pollution levels. Moreover, its RMSE score is 0.62 and R-squared is 0.94, indicating that the prediction performance of this model is good in relation to the other models. Since Hawaii and Alaska are almost polar opposites with the former being geographically smaller and having hotter climate, we suspect that the model will be able to predict PM2.5 concentration levels in Hawaii and Alaska if they were included in this dataset since the diversity but also inter-relatedness of the features in this dataset aids the model in predicting ambient air pollution in differing environments.
+Given that the top 5 features were 'CMAQ', 'lat', 'county_area', 'lon', and 'aod'. We think that XG Boost model will not perform well since our model did not perform well on the test dataset. It seems like we overfit our model, so fitting it to data from Hawaii and Alaska, which we expect to be veyr different from our training dataset, will yield similar results to fitting our model to the test dataset.
 
 ## Discussion
 **Putting it all together, what did you learn from your data and your model performance? Answer your Question posed above, citing any supporting statistics, visualizations, or results from the data or your models.**
 
-We learned
 
 **Reflect on the process of conducting this project. What was challenging, what have you learned from the process itself?**
 
