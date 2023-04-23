@@ -12,9 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 ## Predicting Ambient Air Pollution (PM2.5) Across the Contiguous U.S.
 
-  Air pollution has consequences for everyone, most especially for those with pre-existing conditions. Air pollution is measured in tiny particles or droplets in the air that are two and one-half microns or less in width called PM2.5. So being able to predict the average PM2.5 concentrations ($\mu$g/m$^3$) will allow us to keep people most vulnerable safe as we look for and implement changes to improve the air quality in the region.
-We chose the predictors by …
-For our four models, we chose linear regression, k-nearest neighbors, xgboosting, and random forest. Linear regression models a linear relationship between the PM2.5 value in the atmosphere and the predictors. K-nearest neighbors (kNN) returns predicted PM2.5 values based on their neighboring data points. **INSERT BOOSTING MODEL SENTENCE.** Random forest makes an averaged prediction from a collection of independent decision trees. We predict that the RMSE performance of the bootstrapping model will be the best, with a value of around 0.5.  
+  Air pollution has consequences for everyone, most especially for those with pre-existing conditions. Air pollution is measured in tiny particles or droplets in the air that are two and one-half microns or less in width called PM2.5. So being able to predict the average PM2.5 concentrations ($\mu$g/m$^3$) will allow us to keep people most vulnerable safe as we look for and implement changes to improve the air quality in the region. We created four models to predict the annual average of ambient air pollution in a location based on the variables in the dataset. For our four models, we chose Linear Regression, K-Nearest Neighbors, Xgboosting, and Random Forest. Linear Regression models a linear relationship between the PM2.5 value in the atmosphere and the predictors. K-Nearest Neighbors returns predicted PM2.5 values based on their neighboring data points. Xgboosting predicts PM2.5 values by combining the estimates of a set of simpler, weaker models. Random forest makes an averaged prediction from a collection of independent decision trees. We hypothesize that the RMSE performance of the Xgboosting model will be the best, with a value of around 0.5.  
 
 ```{r}
 library(tidyverse)
@@ -27,14 +25,16 @@ library(randomForest)
 library(factoextra)
 library(MASS)
 library(ranger)
+library(doParallel)
 
 origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25_data.csv.gz")
 ```
 
 ## Wrangling
+
 We split 80% of the origin dataset into training and 20% into testing. Then, we scaled the training datasets for PCA and kNN since both of these require little variance among the variables in the dataset. We omitted the 'id' and 'value' variables from the 'trained_scaled' dataset for PCA because the 'id' values for the monitors would not provide any useful insight on PM2.5 concentration and 'value' is not a predictor. Next, we chose 12 principal components with the highest explained variance since the sum of these components met our threshold of 80% explained variance. Then, we tried to see which variables contributed the most to 'value' and reduced the dimension of the 'trained_scale' dataset based on these variables. For kNN, we created a scaled training set 'train_knn' since extreme values would bias the distance calculation used in kNN modeling. The other models either used 'train' dataset since the variables' values do not affect their prediction performance or used a specially altered version of it. Lastly, we did some exploratory analysis to see the linear relationship between longitude and latitude with PM2.5 concentration.
 
-```{r Predictors}
+```{r ExploratoryAnalysis}
 set.seed(123)
 # Split origin dataset into 80/20
 dat_split <- initial_split(origin, prop =.8)
@@ -122,7 +122,8 @@ origin %>% ggplot(aes(x=lat, y=value)) +
   labs(title="PM2.5 Concentration vs Latitude", x="Latitude (Degrees)", y="PM2.5 (mu g/m^3)")
 ```
 
-## Predictor/Feature Selection
+## Predictor/Feature Extraction
+
 We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 10 as input for the training set for our models. The top 10 important predictors were 'CMAQ', 'lat', 'county_area', 'lon', 'aod', 'popdens_county', 'zcta', 'log_nei_2008_pm25_sum_10000', and 'log_nei_2008_pm10_sum_10000'.
 
 ```{r}
@@ -217,6 +218,7 @@ res2 %>%
 ```
 
 ### 3. Extreme Gradient Boost
+
 Preprocessing requirements
 xgboost does not have a means to translate factor predictors to grouped splits. Factor/categorical predictors need to be converted to numeric values (e.g., dummy or indicator variables) for this engine. When using the formula method via fit.model_spec(), parsnip will convert factor columns to indicators using a one-hot encoding.
 
@@ -316,7 +318,6 @@ folds4 = recipes::bake(preprocessing_recipe, new_data = training(dat_split)) %>%
 rf_grid <- grid_latin_hypercube(min_n(), mtry(range = c(4, 9)), trees(), size = 60)
 
 # Tuning hyperparameters
-library(doParallel)
 all_cores = parallel::detectCores(logical=FALSE)
 cl = makePSOCKcluster(all_cores)
 doParallel::registerDoParallel(cl)
@@ -367,9 +368,7 @@ colnames(compare) = c('model','estimator','estimate')
 tibble(compare)
 ```
 
-As seen on the table, the Random Forest model has the lowest RMSE and is thus the best and final model based on our procedure.
-
-
+As seen on the table, the Random Forest model has the lowest RMSE of 0.62. Since we are choosing the best model by RMSE, the Random Forest model is thus the best and final model based on our procedure.
 
 ## Results
 Describe the development of your 3 prediction models (or 4 models, if working in a group) and
