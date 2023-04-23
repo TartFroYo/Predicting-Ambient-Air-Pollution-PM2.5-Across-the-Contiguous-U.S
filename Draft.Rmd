@@ -135,6 +135,7 @@ import10 = import[1:10,]
 ```
 
 ## Models 
+### 1. Linear Regression
 ```{r LinearRegression}
 set.seed(123)
 # Fit model and get summary
@@ -171,6 +172,10 @@ res1 <- fit_resamples(wf1, resamples = folds1)
 res1 %>% 
     collect_metrics()
 ```
+
+
+
+We first found the ideal number of k neighbors. This was determined by finding the square root of the number of observations, which was rounded to be 26. We fit the model on the training set data and checked its performance using two methods: one is fitting the model to extracting the MAE and MSE and the other is k-fold cross validation. RMSE is the square root of MSE and we were able to confirm its value in the cross-validation by comparing it to the square root of MSE attained from the first method.
 
 ```{r kNearestNeighbors}
 # kNN uses scaled data called train_knn
@@ -210,6 +215,8 @@ res2 %>%
 
 Preprocessing requirements
 xgboost does not have a means to translate factor predictors to grouped splits. Factor/categorical predictors need to be converted to numeric values (e.g., dummy or indicator variables) for this engine. When using the formula method via fit.model_spec(), parsnip will convert factor columns to indicators using a one-hot encoding.
+
+
 
 ```{r Xgboost}
 set.seed(123)
