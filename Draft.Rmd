@@ -12,7 +12,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 ## Predicting Ambient Air Pollution (PM2.5) Across the Contiguous U.S.
 
-  Air pollution has consequences for everyone, most especially for those with pre-existing conditions. Air pollution is measured in tiny particles or droplets in the air that are two and one-half microns or less in width called PM2.5. So being able to predict the average PM2.5 concentrations ($\mu$g/m$^3$) will allow us to keep people most vulnerable safe as we look for and implement changes to improve the air quality in the region. We created four models to predict the annual average of ambient air pollution in a location based on the variables in the dataset. For our four models, we chose Linear Regression, K-Nearest Neighbors, Xgboosting, and Random Forest. Linear Regression models a linear relationship between the PM2.5 value in the atmosphere and the predictors. K-Nearest Neighbors returns predicted PM2.5 values based on their neighboring data points. Xgboosting predicts PM2.5 values by combining the estimates of a set of simpler, weaker models. Random forest makes an averaged prediction from a collection of independent decision trees. We hypothesize that the RMSE performance of the Xgboosting model will be the best, with a value of around 0.5.  
+  Air pollution has consequences for everyone, most especially for those with pre-existing conditions. Air pollution is measured in tiny particles or droplets in the air that are two and one-half microns or less in width called PM2.5. So being able to predict the average PM2.5 concentrations ($\mu$g/m$^3$) will allow us to keep people most vulnerable safe as we look for and implement changes to improve the air quality in the region. We created four models to predict the annual average of ambient air pollution in a location based on the variables in the dataset. We chose our predictors using the Random Forest algorithm. And for our four models, we chose Linear Regression, K-Nearest Neighbors, Xgboosting, and Random Forest. Linear Regression models a linear relationship between the PM2.5 value in the atmosphere and the predictors. K-Nearest Neighbors returns predicted PM2.5 values based on their neighboring data points. Xgboosting predicts PM2.5 values by combining the estimates of a set of simpler, weaker models. Random forest makes an averaged prediction from a collection of independent decision trees. We hypothesize that the RMSE performance of the Xgboosting model will be the best, with a value of around 0.5.  
+
 
 ```{r}
 library(tidyverse)
@@ -122,9 +123,10 @@ origin %>% ggplot(aes(x=lat, y=value)) +
   labs(title="PM2.5 Concentration vs Latitude", x="Latitude (Degrees)", y="PM2.5 (mu g/m^3)")
 ```
 
-## Predictor/Feature Extraction
+## Results
+### Predictor/Feature Extraction
 
-We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 10 as input for the training set for our models. The top 10 important predictors were 'CMAQ', 'lat', 'county_area', 'lon', 'aod', 'popdens_county', 'zcta', 'log_nei_2008_pm25_sum_10000', and 'log_nei_2008_pm10_sum_10000'. This website was used [TowardDataScience](https://towardsdatascience.com/feature-selection-using-random-forest-26d7b747597f).
+We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 10 as input for the training set for our models. The top 10 important predictors were 'CMAQ', 'lat', 'county_area', 'lon', 'aod', 'popdens_county', 'zcta', 'log_nei_2008_pm25_sum_10000', and 'log_nei_2008_pm10_sum_10000'. We will use these features to predict 'value' proceeding onwards. This website was used [TowardDataScience](https://towardsdatascience.com/feature-selection-using-random-forest-26d7b747597f).
 
 ```{r}
 # Use Random Forest for variable selection
@@ -136,7 +138,7 @@ import=tibble::rownames_to_column(import, 'variables')
 import10 = import[1:10,]
 ```
 
-## Models 
+### Models 
 ### 1. Linear Regression
 For linear regression (LR), the unscaled training set was used since variance does not affect the prediction performance of this model. Step Akaike Information Criteria (AIC) was used to simplify feature amount without impacting the model's performance. Features are dropped as the AIC score decreases and feature dropping stops once the AIC score increases.  'CMAQ,' 'lat,' 'lon,' 'aod,' 'zcta,' and 'log_nei_2008_pm25_sum_10000' were determined to be the most important features, and these predictors were used in the recipe. Then, model was fitted. Using the summary function, we found the LR model had a RMSE of 2.22 performance. After sampling on 10 subsets of the training set, the RMSE score was 2.21, indicating that this model's prediction performance is not good.
 
@@ -179,7 +181,7 @@ res1 %>%
 
 ### 2. K-Nearest Neighbors
 
-We first found the ideal number of k neighbors. This was determined by finding the square root of the number of observations, which was rounded to be 26. We fit the model on the training set data and checked its performance using two methods: the first was fitting the model to extracting the MAE and MSE and the second was k-fold cross validation. RMSE is the square root of MSE and we were able to confirm its value in the cross-validation by comparing it to the square root of MSE attained from the first method.
+The K-Nearest Neighbors (KNN) model finds the predicted 'value' by taking the average 'value' of its k neighbors. We first found the ideal number of k neighbors. This was determined by finding the square root of the number of observations, which was rounded to be 26. We fit the model on the training set data and checked its performance using two methods: the first was fitting the model to extracting the MAE and MSE and the second was 10-fold cross validation. RMSE is the square root of MSE and we were able to confirm its value in the cross-validation by comparing it to the square root of MSE attained from the first method. We found that after 10-fold cross validation, the RMSE was 1.79. This indicates that the model does not predict well.
 
 ```{r kNearestNeighbors}
 # kNN uses scaled data called train_knn
@@ -218,12 +220,8 @@ res2 %>%
 ```
 
 ### 3. Extreme Gradient Boost Regression
-The Extreme Gradient (XG) Boosting model performs by training weak learners, models that have low prediction accuracy, sequentially to become a single strong learner, a model that has strong prediction accuracy. We preprocess the training set to make the predictive modeling process more accurate and smoother by prepping (estimates the quantities for 'train_scaled') and baking (assigns prepped data to an object) the data. The aforementioned top 10 predictors were used in this preprocessing recipe. Moreover, the categorical variables were factored and features with no variance were removed before this data was baked. Then, this processed data is assigned to 'folds3' and resampled on 5 subsets of the training set. We tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was .71, indicating the XG Boosting is a good model. 
 
-Preprocessing requirements
-xgboost does not have a means to translate factor predictors to grouped splits. Factor/categorical predictors need to be converted to numeric values (e.g., dummy or indicator variables) for this engine. When using the formula method via fit.model_spec(), parsnip will convert factor columns to indicators using a one-hot encoding.
-
-
+The Extreme Gradient Boosting (XGB) model performs by training weak learners, models that have low prediction accuracy, sequentially to become a single strong learner, a model that has strong prediction accuracy. We preprocess the training set to make the predictive modeling process more accurate and smoother by prepping (estimates the quantities for 'train_scaled') and baking (assigns prepped data to an object) the data. The aforementioned top 10 predictors were used in this preprocessing recipe. Moreover, the categorical variables were factored and features with no variance were removed before this data was baked. Then, this processed data is assigned to 'folds3' and resampled on 5 subsets of the training set. We tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was .71, indicating the XG Boosting is a good model. 
 
 ```{r Xgboost}
 set.seed(123)
@@ -352,7 +350,9 @@ rf_score_train
 ```
 
 ### Best Model
+
 The following code creates a table containing the RMSE and RSQ estimates for each of our four models.
+
 ```{r}
 # Create table of prediction metrics
 linreg = res1 |> collect_metrics() |> as.data.frame()
@@ -365,22 +365,16 @@ ranfor = rf_score_train |> filter(.metric!='mae') |> as.data.frame()
 ranfor = cbind(ranfor[,1], ranfor[,3])
 
 compare = c('LR','LR','KNN','KNN','XGB','XGB','RF','RF') |> cbind(rbind(linreg,knn,xgboost,ranfor))
-colnames(compare) = c('model','estimator','estimate')
+colnames(compare) = c('model','estimator','estimate') 
+compare = as.data.frame(compare) |> pivot_wider(names_from=estimator, values_from=estimate)
 tibble(compare)
 ```
 
-As seen on the table, the Random Forest model has the lowest RMSE of 0.62. Since we are choosing the best model by RMSE, the Random Forest model is thus the best and final model based on our procedure.
+As seen on the table, LR has the lowest r-squared estimate and highest RMSE while RF is the opposite. KNN has the second highest RMSE with a moderate r-squared estimate. And XGB has both a high RMSE and r-squared estimate. Random Forest model has the lowest RMSE of 0.62 and highest r-squared estimate. Since we are choosing the best model by RMSE, the Random Forest model is thus the best and final model based on our procedure.
 
 ## Results
-Describe the development of your 3 prediction models (or 4 models, if working in a group) and
-how you compared their performance. 
-Be sure to describe the splitting of training and testing datasets 
-and the use of cross-validation to evaluate prediction metrics. 
-Remember that the primary metric for your prediction model will be root-mean-squared error (RMSE). 
 Your results should include 
 at least one visualization demonstrating the prediction performance of your models. 
-You should also include 
-a table summarizing the prediction metrics (including RMSE) across all of the models that you tried.
 
 1. Based on test set performance, at what locations does your model give predictions that
 are closest and furthest from the observed values? What do you hypothesize are the
