@@ -402,6 +402,7 @@ that are not included in this dataset that you think might improve the model per
 on the ground. Two candidates for replacing the use of ground-based monitors are numerical models like CMAQ and satellite-based observations such as AOD. How well do
 CMAQ and AOD predict ground-level concentrations of PM2.5? How does the prediction performance of your model change when CMAQ or aod are included (or not included) in
 the model?
+- create visualization showing how close features CMAQ and AOD predict values of PM2.5 to actual/observed values
 
 4. The dataset here did not include data from Alaska or Hawaii. Do you think your model
 will perform well or not in those two states? Explain your reasoning
