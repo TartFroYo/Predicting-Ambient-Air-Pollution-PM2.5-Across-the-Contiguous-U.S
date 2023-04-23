@@ -42,7 +42,7 @@ dat_split <- initial_split(origin, prop =.8)
 dat_split
 # Use 80% of data for training 
 train <- training(dat_split)
-test <- data[dat_split==1, ]
+test <- testing(dat_split)
 
 # Create standardize train data for kNN and PCA
 # Omit value and id variables since these should not be scaled
@@ -355,20 +355,44 @@ rf_score_train
 The following code creates a table containing the RMSE and RSQ estimates for each of our four models.
 
 ```{r}
-# Create table of prediction metrics
-linreg = res1 |> collect_metrics() |> as.data.frame()
-linreg = cbind(linreg[,1], round(linreg[,3],2))
-knn = res2 %>% collect_metrics() |> as.data.frame()
-knn = cbind(knn[,1], round(knn[,3],2))
-xgboost = xgboost_score_train |> filter(.metric!='mae') |> as.data.frame()
-xgboost = cbind(xgboost[,1], xgboost[,3])
-ranfor = rf_score_train |> filter(.metric!='mae') |> as.data.frame()
-ranfor = cbind(ranfor[,1], ranfor[,3])
+# Create table of prediction metrics from training data
+linreg1 = res1 |> collect_metrics() |> as.data.frame()
+linreg1 = cbind(linreg1[,1], round(linreg1[,3],2))
+knn1 = res2 %>% collect_metrics() |> as.data.frame()
+knn1 = cbind(knn1[,1], round(knn1[,3],2))
+xgboost1 = xgboost_score_train |> filter(.metric!='mae') |> as.data.frame()
+xgboost1 = cbind(xgboost1[,1], xgboost1[,3])
+ranfor1 = rf_score_train |> filter(.metric!='mae') |> as.data.frame()
+ranfor1 = cbind(ranfor1[,1], ranfor1[,3])
 
-compare = c('LR','LR','KNN','KNN','XGB','XGB','RF','RF') |> cbind(rbind(linreg,knn,xgboost,ranfor))
-colnames(compare) = c('model','estimator','estimate') 
-compare = as.data.frame(compare) |> pivot_wider(names_from=estimator, values_from=estimate)
-tibble(compare)
+compare1 = c('LR','LR','KNN','KNN','XGB','XGB','RF','RF') |> cbind(rbind(linreg1,knn1,xgboost1,ranfor1))
+colnames(compare1) = c('model','estimator','estimate') 
+compare1 = as.data.frame(compare1) |> pivot_wider(names_from=estimator, values_from=estimate)
+tibble(compare1)
+
+# Get pred. metrics from models based on testing data
+# LR
+
+
+
+
+# KNN
+
+
+
+
+# XGB
+
+
+
+
+# RF
+
+
+
+
+
+
 ```
 
 As seen on the table, LR has the lowest r-squared estimate and highest RMSE while RF is the opposite. KNN has the second highest RMSE with a moderate r-squared estimate. And XGB has both a high RMSE and r-squared estimate. Random Forest model has the lowest RMSE of 0.62 and highest r-squared estimate. Since we are choosing the best model by RMSE, the Random Forest model is thus the best and final model based on our procedure.
