@@ -26,6 +26,7 @@ library(plotROC)
 library(randomForest)
 library(factoextra)
 library(MASS)
+library(ranger)
 
 origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25_data.csv.gz")
 ```
@@ -126,7 +127,7 @@ origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~sta
 ```{r}
 # Use Random Forest for variable selection
 rfmodel = randomForest(value~., data=train[,2:50])
-import=as.data.frame(importance(rfmodel)) |> arrange(desc(IncNodePurity))
+import=as.data.frame(randomForest::importance(rfmodel)) |> arrange(desc(IncNodePurity))
 import=tibble::rownames_to_column(import, 'variables')
 
 # take top 10 important variables
@@ -134,7 +135,7 @@ import10 = import[1:10,]
 ```
 
 ## Models 
-```{r Linear}
+```{r LinearRegression}
 set.seed(123)
 # Fit model and get summary
 fit_lm = lm(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
@@ -171,7 +172,8 @@ res1 %>%
     collect_metrics()
 ```
 
-```{r kNN uses scaled training data - ALL MODELS FAILED}
+```{r kNearestNeighbors}
+# kNN uses scaled data called train_knn
 set.seed(123)
 # Find ideal k neighbors
 sqrt(nrow(train))
@@ -211,7 +213,7 @@ xgboost does not have a means to translate factor predictors to grouped splits. 
 
 ```{r Xgboost}
 set.seed(123)
-# Preprocessing "recipe"
+# Preprocessing recipe
 preprocessing_recipe <- 
   recipes::recipe(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
              log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000, data = training(dat_split)) %>%
@@ -240,10 +242,11 @@ head(xgboost_grid)
 
 xgboost_wf <- workflows::workflow() %>%
   add_model(xgboost_model) %>% 
-  add_formula(value~lon+lat)
+  add_formula(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000)
 
 # Hyperparameter tuning
-# Takes a long time to run, 5 min
+# Takes a long time to run, 5-8 min
 xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds3,
   grid = xgboost_grid, metrics = yardstick::metric_set(rmse, rsq),
   control = tune::control_grid(verbose = TRUE))
@@ -257,14 +260,14 @@ xgboost_best_params
 # Final boost model
 xgboost_model_final <- xgboost_model %>% finalize_model(xgboost_best_params)
 
-# Eval. model performance on test data
+# Eval. model performance on train data
 train_processed <- bake(preprocessing_recipe,  new_data = training(dat_split))
 
 train_prediction <- xgboost_model_final %>%
   # Fit the model on all the training data
   parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
              log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000, data = train_processed) %>%
-  # Predict the sale prices for the training data
+  # Predict value for the training data
   predict(new_data = train_processed) %>%
   bind_cols(training(dat_split))
 
@@ -274,50 +277,62 @@ xgboost_score_train <- train_prediction %>%
 xgboost_score_train
 ```
 
-
-
-```{r Random Forest}
+```{r RandomForest}
 set.seed(123)
-# Create Random Forest Model
-# Use grid of tuning parameters
-model4 <- rand_forest(mtry = tune("mtry"),
-                     min_n = tune("min_n")) %>% 
-    set_engine("ranger") %>% 
-    set_mode("regression")
-# Create workflow
-  wf4 <- workflow() %>% 
-    add_recipe(rec) %>% 
-    add_model(model4)
+# Preprocessing recipe
+rec4 <- recipe(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000, data=train) %>%
+  step_log(all_outcomes()) |> 
+  step_normalize(all_numeric_predictors()) |> 
+  step_dummy(all_nominal_predictors())
+
+#  Create model specification and wf
+rf_spec <- rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>%
+  set_engine("ranger", num.threads=7, importance="impurity") |> 
+  set_mode("regression")
+
+wf4 <- workflow() %>%
+  add_recipe(rec4) %>%
+  add_model(rf_spec)
+
+folds4 = recipes::bake(preprocessing_recipe, new_data = training(dat_split)) %>%  
+  rsample::vfold_cv(v = 5)
+
+# Space-filling designs grid
+rf_grid <- grid_latin_hypercube(min_n(), mtry(range = c(4, 9)), trees(), size = 60)
+
+# Tuning hyperparameters
+library(doParallel)
+all_cores = parallel::detectCores(logical=FALSE)
+cl = makePSOCKcluster(all_cores)
+doParallel::registerDoParallel(cl)
+
+# Takes long time to load 2 min
+tune_res <- wf4 |> tune_grid(resamples = folds4, grid = rf_grid, metrics=metric_set(rmse,rsq), control = tune::control_grid(verbose = TRUE))
+tune_res
+
+# Find hyper parameter values which performed best at minimizing RMSE
+tune_res %>% tune::show_best(metric = "rmse") %>%knitr::kable()
+# Isolate the best performing hyperparameter values.
+rf_best_params <- tune_res %>% tune::select_best("rmse")
+rf_best_params
+
+# Final Random Forest model
+rf_model_final <- rf_spec %>% finalize_model(rf_best_params)
+
+# Check Random Forest model performance
+train_processed2 <- bake(preprocessing_recipe,  new_data = training(dat_split))
+
+train_prediction2 = rf_model_final |> 
+  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000, data=train_processed2) |> 
+  predict(new_data=train_processed2) |> 
+  bind_cols(training(dat_split))
   
-# Fit the model on the full training dataset using the `fit()` function
-res4 <- fit(wf4, data = train_scaled)
-# Check performance on the complete training data
-res4 %>% 
-    extract_fit_engine() %>% 
-    summary()
-# Check performance using cross-validation
-folds4 <- vfold_cv(train, v = 10)
-folds4
-# Determine performance of model by resampling
-res4 <- fit_resamples(wf4, folds4) # ERROR Assigned data `orig_rows` must be compatible with existing data.
-res4 %>% 
-    collect_metrics()
-
-## Try a grid of tuning parameters
-model <- rand_forest(mtry = tune("mtry"),
-                     min_n = tune("min_n")) %>% 
-    set_engine("ranger") %>% 
-    set_mode("regression")
-
-wf4 <- workflow() %>% 
-    add_recipe(rec) %>% 
-    add_model(model)
-
-## Fit model over grid of tuning parameters
-res <- tune_grid(wf4, resamples = folds4, grid = 20)
-
-res %>% 
-    collect_metrics()
+rf_score_train = train_prediction2 |> 
+  yardstick::metrics(value, .pred) |> 
+  mutate(.estimate=format(round(.estimate, 2), big.mark=","))
+rf_score_train
 ```
 
 ## Results

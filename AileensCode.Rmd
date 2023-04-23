@@ -50,4 +50,8 @@ varimpAUC(cf1)
 
 
 
+```{r}
+x=1
+knitr::kable(x)
 ```
+
