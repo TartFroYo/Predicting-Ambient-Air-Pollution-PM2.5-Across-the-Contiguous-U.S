@@ -219,12 +219,12 @@ res2 %>%
 
 ### 3. Extreme Gradient Boost Regression
 
-The Extreme Gradient Boosting (XGB) model performs by training weak learners, models that have low prediction accuracy, sequentially to become a single strong learner, a model that has strong prediction accuracy. We preprocess the training set to make the predictive modeling process more accurate and smoother by prepping (estimates the quantities for 'train_scaled') and baking (assigns prepped data to an object) the data. The aforementioned top 10 predictors were used in this preprocessing recipe. Moreover, the categorical variables were factored and features with no variance were removed before this data was baked. Then, this processed data is assigned to 'folds3' and resampled on 5 subsets of the training set. Using 'fold3', we tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was 0.69, indicating the XG Boosting is an adequate model. This website was used: [RBloggers](https://www.r-bloggers.com/2020/05/using-xgboost-with-tidymodels/)
+The Extreme Gradient Boosting (XGB) model performs by training weak learners, models that have low prediction accuracy, sequentially to become a single strong learner, a model that has strong prediction accuracy. We preprocess the training set to make the predictive modeling process more accurate and smoother by prepping (estimates the quantities for 'train_scaled') and baking (assigns prepped data to an object) the data. The aforementioned top 10 predictors were used in this preprocessing recipe. Moreover, the categorical variables were factored and features with no variance were removed before this data was baked. Then, this processed data is assigned to 'folds3' and resampled on 5 subsets of the training set. Using 'fold3', we tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was 0.23, indicating the XG Boosting is an adequate model. This website was used: [RBloggers](https://www.r-bloggers.com/2020/05/using-xgboost-with-tidymodels/)
 
 ```{r Xgboost}
 set.seed(123)
 # Preprocessing recipe
-preprocessing_recipe <- 
+rec3 <- 
   recipes::recipe(value ~ CMAQ+lat+county_area+lon+aod, data = training(dat_split)) %>%
   # Convert categorical variables to factors
   recipes::step_string2factor(all_nominal()) %>%
@@ -234,7 +234,7 @@ preprocessing_recipe <-
   recipes::step_nzv(all_nominal()) %>%
   prep()
 
-folds3 <- recipes::bake(preprocessing_recipe, new_data = training(dat_split)) %>%  
+folds3 <- recipes::bake(rec3, new_data = training(dat_split)) %>%  
   rsample::vfold_cv(v = 5)
 
 # XGBoost model specification
@@ -247,7 +247,7 @@ xgboost_params <- dials::parameters(min_n(), tree_depth(), learn_rate(), loss_re
 
 xgboost_grid <- dials::grid_max_entropy(xgboost_params, size = 60)
 
-head(xgboost_grid)
+# head(xgboost_grid)
 
 xgboost_wf <- workflows::workflow() %>%
   add_model(xgboost_model) %>% 
@@ -269,7 +269,7 @@ xgboost_best_params
 xgboost_model_final <- xgboost_model %>% finalize_model(xgboost_best_params)
 
 # Eval. model performance on train data
-train_processed <- bake(preprocessing_recipe,  new_data = training(dat_split))
+train_processed <- bake(rec3,  new_data = training(dat_split))
 
 train_prediction <- xgboost_model_final %>%
   # Fit the model on all the training data
@@ -278,10 +278,10 @@ train_prediction <- xgboost_model_final %>%
   predict(new_data = train_processed) %>%
   bind_cols(training(dat_split))
 
-xgboost_score_train <- train_prediction %>%
+res3 <- train_prediction %>%
   yardstick::metrics(value, .pred) %>%
   mutate(.estimate = format(round(.estimate, 2), big.mark = ","))
-xgboost_score_train
+res3
 ```
 
 ### 4. Random Forest Regression
@@ -309,7 +309,8 @@ folds4 = recipes::bake(rec4, new_data = training(dat_split)) %>%
   rsample::vfold_cv(v = 5)
 
 # Space-filling designs grid
-rf_grid <- grid_latin_hypercube(min_n(), mtry(range = c(4, 9)), trees(), size = 60)
+rf_grid <- grid_latin_hypercube(min_n(), mtry(range(4,9)), trees(), size = 60)
+
 
 # Tuning hyperparameters
 all_cores = parallel::detectCores(logical=FALSE)
@@ -337,10 +338,10 @@ train_prediction2 = rf_model_final |>
   predict(new_data=train_processed2) |> 
   bind_cols(training(dat_split))
   
-rf_score_train = train_prediction2 |> 
+res4 = train_prediction2 |> 
   yardstick::metrics(value, .pred) |> 
   mutate(.estimate=format(round(.estimate, 2), big.mark=","))
-rf_score_train
+res4
 ```
 
 ### Best Model
@@ -348,14 +349,15 @@ rf_score_train
 The following code creates a table containing the RMSE and RSQ estimates for each of our four models.
 
 ```{r Best&Final}
+set.seed(123)
 # Create table of prediction metrics from training data
 linreg = res1 |> collect_metrics() |> as.data.frame()
 linreg = cbind(linreg[,1], round(linreg[,3],2))
 knn = res2 %>% collect_metrics() |> as.data.frame()
 knn = cbind(knn[,1], round(knn[,3],2))
-xgboost = xgboost_score_train |> filter(.metric!='mae') |> as.data.frame()
+xgboost = res3 |> filter(.metric!='mae') |> as.data.frame()
 xgboost = cbind(xgboost[,1], xgboost[,3])
-ranfor = rf_score_train |> filter(.metric!='mae') |> as.data.frame()
+ranfor = res4 |> filter(.metric!='mae') |> as.data.frame()
 ranfor = cbind(ranfor[,1], ranfor[,3])
 
 compare = c('LR','LR','KNN','KNN','XGB','XGB','RF','RF') |> cbind(rbind(linreg,knn,xgboost,ranfor))
@@ -369,8 +371,9 @@ compare |> ggplot(aes(x=model, y=rmse)) +
   labs(title='RMSE of the Four Models') +
   theme_minimal()
 
+# Final model
 # Fit XGB model to testing data
-test_processed <- bake(preprocessing_recipe, new_data = testing(dat_split))
+test_processed <- bake(rec3, new_data = testing(dat_split))
 
 # Get pred. metrics based on testing data
 test_prediction = xgboost_model_final |> 
@@ -378,13 +381,13 @@ test_prediction = xgboost_model_final |>
   predict(new_data=test_processed) |> 
   bind_cols(testing(dat_split))
 
-xgb_score_test = test_prediction |> 
+res_final = test_prediction |> 
   yardstick::metrics(value, .pred) |> 
   mutate(.estimate=format(round(.estimate, 2), big.mark=","))
-xgb_score_test
+res_final
 ```
 
-As seen on the table and visual, LR has the highest RMSE and lowest R-squared estimate. KNN has the second highest RMSE with a moderate R-squared estimate. And XGB has the lowest RMSE of 0.69 and the highest R-squared estimate of 0.93. Random Forest model has the both the second lowest RMSE and second highest R-squared estimate. Since we are choosing the best model by the best RMSE, which is the lowest one, the Xgboost model is thus the best and final model based on our procedure. After fitting the Xgboost model to the testing data, we find that its RMSE and R-squared is 1.39 and 0.66, respectively. Since we are trying to predict annual average ambient air pollution of a given monitor, then these statistics mean that the amount of error in our model's predictions is about 1.39 $\mu$g/m$^3$, and that the features we used in our model are able to explain 66% of the variance in the data, which means this model does not fit/predict the data well.
+As seen on the table and visual, LR has the highest RMSE and lowest R-squared estimate. KNN has the second highest RMSE with a moderate R-squared estimate. And XGB has the lowest RMSE of 0.23 and the highest R-squared estimate of 0.99. Random Forest model has the both the second lowest RMSE and second highest R-squared estimate. Since we are choosing the best model by the best RMSE, which is the lowest one, the Xgboost model is thus the best and final model based on our procedure. After fitting the Xgboost model to the testing data, we find that its RMSE and R-squared is 1.38 and 0.68, respectively. Since we are trying to predict annual average ambient air pollution of a given monitor, then these statistics mean that the amount of error in our model's predictions is about 1.38 $\mu$g/m$^3$, and that the features we used in our model are able to explain 68% of the variance in the data, which means this model does not fit/predict the data well.
 
 **1. Based on test set performance, at what locations does your model give predictions that are closest and furthest from the observed values? What do you hypothesize are the reasons for the good or bad performance at these locations?** 
 
@@ -412,13 +415,11 @@ loc |> filter(diff>=0.5) |> ggplot(aes(y=state)) + geom_bar()
 
 **3. There is interest in developing more cost-effect approaches to monitoring air pollution on the ground. Two candidates for replacing the use of ground-based monitors are numerical models like CMAQ and satellite-based observations such as AOD. How well do CMAQ and AOD predict ground-level concentrations of PM2.5? How does the prediction performance of your model change when CMAQ or AOD are included (or not included) in the model?**
 
-- no cmaq and no aod models
-
 ```{r Q3-1}
 set.seed(123)
 # XGB model w/only cmaq and aod
 # Preprocessing recipe
-preprocessing_recipe <- 
+rec5 <- 
   recipes::recipe(value ~ CMAQ + aod, data = training(dat_split)) %>%
   # Convert categorical variables to factors
   recipes::step_string2factor(all_nominal()) %>%
@@ -428,7 +429,7 @@ preprocessing_recipe <-
   recipes::step_nzv(all_nominal()) %>%
   prep()
 
-folds5 <- recipes::bake(preprocessing_recipe, new_data = training(dat_split)) %>%  
+folds5 <- recipes::bake(rec5, new_data = training(dat_split)) %>%  
   rsample::vfold_cv(v = 5)
 
 # XGBoost model specification
@@ -463,25 +464,151 @@ xgboost_best_params
 xgboost_model_final <- xgboost_model %>% finalize_model(xgboost_best_params)
 
 # Eval. model performance on train data
-test_processed <- bake(preprocessing_recipe,  new_data = testing(dat_split))
-train_processed <- bake(preprocessing_recipe,  new_data = training(dat_split))
+test_processed <- bake(rec5,  new_data = testing(dat_split))
+train_processed <- bake(rec5,  new_data = training(dat_split))
 
 test_prediction = xgboost_model_final |> 
   parsnip::fit(formula = value ~ CMAQ+aod, data=train_processed) |> 
   predict(new_data=test_processed) |> 
   bind_cols(testing(dat_split))
 
-xgb_q3p1 = test_prediction |> 
+res5 = test_prediction |> 
   yardstick::metrics(value, .pred) |> 
   mutate(.estimate=format(round(.estimate, 2), big.mark=","))
-xgb_q3p1
+res5
 ```
 
 ```{r Q3-2}
 set.seed(123)
+# XGB model w/only cmaq
+# Preprocessing recipe
+rec6 <- 
+  recipes::recipe(value ~ CMAQ, data = training(dat_split)) %>%
+  # Convert categorical variables to factors
+  recipes::step_string2factor(all_nominal()) %>%
+  # Combine low frequency factor levels
+  recipes::step_other(all_nominal(), threshold = 0.01) %>%
+  # Remove no variance predictors which provide no predictive information 
+  recipes::step_nzv(all_nominal()) %>%
+  prep()
+
+folds6 <- recipes::bake(rec6, new_data = training(dat_split)) %>%  
+  rsample::vfold_cv(v = 5)
+
+# XGBoost model specification
+xgboost_model <- parsnip::boost_tree(mode = "regression", trees = 1000, min_n = tune(),
+  tree_depth = tune(), learn_rate = tune(), loss_reduction = tune()) %>%
+  set_engine("xgboost", objective = "reg:squarederror")
+
+# Grid specification
+xgboost_params <- dials::parameters(min_n(), tree_depth(), learn_rate(), loss_reduction())
+
+xgboost_grid <- dials::grid_max_entropy(xgboost_params, size = 60)
+
+head(xgboost_grid)
+
+xgboost_wf <- workflows::workflow() %>%
+  add_model(xgboost_model) %>% 
+  add_formula(value ~ CMAQ)
+
+# Hyperparameter tuning
+# Takes a long time to run, 5-8 min
+xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds6,
+  grid = xgboost_grid, metrics = yardstick::metric_set(rmse, rsq),
+  control = tune::control_grid(verbose = TRUE))
+
+# Find hyper parameter values which performed best at minimizing RMSE
+xgboost_tuned %>% tune::show_best(metric = "rmse") %>%knitr::kable()
+# Isolate the best performing hyperparameter values.
+xgboost_best_params <- xgboost_tuned %>% tune::select_best("rmse")
+xgboost_best_params
+
+# Final boost model
+xgboost_model_final <- xgboost_model %>% finalize_model(xgboost_best_params)
+
+# Eval. model performance on train data
+test_processed <- bake(rec6,  new_data = testing(dat_split))
+train_processed <- bake(rec6,  new_data = training(dat_split))
+
+test_prediction = xgboost_model_final |> 
+  parsnip::fit(formula = value ~ CMAQ, data=train_processed) |> 
+  predict(new_data=test_processed) |> 
+  bind_cols(testing(dat_split))
+
+res6 = test_prediction |> 
+  yardstick::metrics(value, .pred) |> 
+  mutate(.estimate=format(round(.estimate, 2), big.mark=","))
+res6
+```
+
+```{r Q3-3}
+set.seed(123)
+# XGB model w/only aod
+# Preprocessing recipe
+rec7 <- 
+  recipes::recipe(value ~ aod, data = training(dat_split)) %>%
+  # Convert categorical variables to factors
+  recipes::step_string2factor(all_nominal()) %>%
+  # Combine low frequency factor levels
+  recipes::step_other(all_nominal(), threshold = 0.01) %>%
+  # Remove no variance predictors which provide no predictive information 
+  recipes::step_nzv(all_nominal()) %>%
+  prep()
+
+folds7 <- recipes::bake(rec7, new_data = training(dat_split)) %>%  
+  rsample::vfold_cv(v = 5)
+
+# XGBoost model specification
+xgboost_model <- parsnip::boost_tree(mode = "regression", trees = 1000, min_n = tune(),
+  tree_depth = tune(), learn_rate = tune(), loss_reduction = tune()) %>%
+  set_engine("xgboost", objective = "reg:squarederror")
+
+# Grid specification
+xgboost_params <- dials::parameters(min_n(), tree_depth(), learn_rate(), loss_reduction())
+
+xgboost_grid <- dials::grid_max_entropy(xgboost_params, size = 60)
+
+head(xgboost_grid)
+
+xgboost_wf <- workflows::workflow() %>%
+  add_model(xgboost_model) %>% 
+  add_formula(value ~ aod)
+
+# Hyperparameter tuning
+# Takes a long time to run, 5-8 min
+xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds7,
+  grid = xgboost_grid, metrics = yardstick::metric_set(rmse, rsq),
+  control = tune::control_grid(verbose = TRUE))
+
+# Find hyper parameter values which performed best at minimizing RMSE
+xgboost_tuned %>% tune::show_best(metric = "rmse") %>%knitr::kable()
+# Isolate the best performing hyperparameter values.
+xgboost_best_params <- xgboost_tuned %>% tune::select_best("rmse")
+xgboost_best_params
+
+# Final boost model
+xgboost_model_final <- xgboost_model %>% finalize_model(xgboost_best_params)
+
+# Eval. model performance on train data
+test_processed <- bake(rec7,  new_data = testing(dat_split))
+train_processed <- bake(rec7,  new_data = training(dat_split))
+
+test_prediction = xgboost_model_final |> 
+  parsnip::fit(formula = value ~ aod, data=train_processed) |> 
+  predict(new_data=test_processed) |> 
+  bind_cols(testing(dat_split))
+
+res7 = test_prediction |> 
+  yardstick::metrics(value, .pred) |> 
+  mutate(.estimate=format(round(.estimate, 2), big.mark=","))
+res7
+```
+
+```{r Q3-4}
+set.seed(123)
 # XGB model w/o cmaq and aod
 # Preprocessing recipe
-preprocessing_recipe <- 
+rec8 <- 
   recipes::recipe(value ~ lat+county_area+lon, data = training(dat_split)) %>%
   # Convert categorical variables to factors
   recipes::step_string2factor(all_nominal()) %>%
@@ -491,7 +618,7 @@ preprocessing_recipe <-
   recipes::step_nzv(all_nominal()) %>%
   prep()
 
-folds6 <- recipes::bake(preprocessing_recipe, new_data = training(dat_split)) %>%  
+folds8 <- recipes::bake(rec8, new_data = training(dat_split)) %>%  
   rsample::vfold_cv(v = 5)
 
 # XGBoost model specification
@@ -512,7 +639,7 @@ xgboost_wf <- workflows::workflow() %>%
 
 # Hyperparameter tuning
 # Takes a long time to run, 5-8 min
-xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds6,
+xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds8,
   grid = xgboost_grid, metrics = yardstick::metric_set(rmse, rsq),
   control = tune::control_grid(verbose = TRUE))
 
@@ -526,20 +653,22 @@ xgboost_best_params
 xgboost_model_final <- xgboost_model %>% finalize_model(xgboost_best_params)
 
 # Eval. model performance on train data
-test_processed <- bake(preprocessing_recipe,  new_data = testing(dat_split))
+test_processed <- bake(rec8,  new_data = testing(dat_split))
 
 test_prediction = xgboost_model_final |> 
   parsnip::fit(formula = value ~ lat+county_area+lon, data=train_processed) |> 
   predict(new_data=test_processed) |> 
   bind_cols(testing(dat_split))
 
-xgb_q3p2 = test_prediction |> 
+res8 = test_prediction |> 
   yardstick::metrics(value, .pred) |> 
   mutate(.estimate=format(round(.estimate, 2), big.mark=","))
-xgb_q3p2
+res8
 ```
 
+3. There is interest in developing more cost-effect approaches to monitoring air pollution on the ground. Two candidates for replacing the use of ground-based monitors are numerical models like CMAQ and satellite-based observations such as AOD. How well do CMAQ and AOD predict ground-level concentrations of PM2.5? How does the prediction performance of your model change when CMAQ or AOD are included (or not included) in the model?
 
+CMAQ and aod do not predict
 
 
 **4. The dataset here did not include data from Alaska or Hawaii. Do you think your model will perform well or not in those two states? Explain your reasoning.**
