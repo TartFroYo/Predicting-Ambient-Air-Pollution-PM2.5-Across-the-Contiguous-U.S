@@ -405,7 +405,7 @@ the model?
 
 4. The dataset here did not include data from Alaska or Hawaii. Do you think your model
 will perform well or not in those two states? Explain your reasoning
-
+Given that the top 10 features were 'CMAQ,' 'lat,' 'county_area,' 'lon,' 'aod,' 'popdens_county,' 'zcta,' 'log_nei_2008_pm25_sum_10000,' 'fips,' and 'log_nei_2008_pm10_sum_10000,' we think that XG Boost model will perform well since the origin dataset included states of varying sizes and pollution levels. Moreover, its RMSE score is .42 and R^2 is .98, indicating that the prediction performance of this model is excellent. Since Hawaii and Alaska are almost polar opposites with the former being geographically smaller and having hotter climate, we suspect that the model will be able to predict PM2.5 concentration levels in Hawaii and Alaska if they were included in this dataset since the diversity but also interrelatedness in this dataset aids the model in learning the different environments in which pollution occurs.
 
 ## Discussion
 Putting it all together, what did you learn from your data and your model performance?
