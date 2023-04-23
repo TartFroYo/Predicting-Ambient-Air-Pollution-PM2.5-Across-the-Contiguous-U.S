@@ -349,6 +349,28 @@ rf_score_train = train_prediction2 |>
 rf_score_train
 ```
 
+### Best Model
+The following code creates a table containing the RMSE and RSQ estimates for each of our four models.
+```{r}
+# Create table of prediction metrics
+linreg = res1 |> collect_metrics() |> as.data.frame()
+linreg = cbind(linreg[,1], round(linreg[,3],2))
+knn = res2 %>% collect_metrics() |> as.data.frame()
+knn = cbind(knn[,1], round(knn[,3],2))
+xgboost = xgboost_score_train |> filter(.metric!='mae') |> as.data.frame()
+xgboost = cbind(xgboost[,1], xgboost[,3])
+ranfor = rf_score_train |> filter(.metric!='mae') |> as.data.frame()
+ranfor = cbind(ranfor[,1], ranfor[,3])
+
+compare = c('LR','LR','KNN','KNN','XGB','XGB','RF','RF') |> cbind(rbind(linreg,knn,xgboost,ranfor))
+colnames(compare) = c('model','estimator','estimate')
+tibble(compare)
+```
+
+As seen on the table, the Random Forest model has the lowest RMSE and is thus the best and final model based on our procedure.
+
+
+
 ## Results
 Describe the development of your 3 prediction models (or 4 models, if working in a group) and
 how you compared their performance. 
