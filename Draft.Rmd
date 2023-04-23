@@ -140,7 +140,7 @@ import5 = import[1:5,]
 
 ### Models 
 ### 1. Linear Regression
-For linear regression (LR), the unscaled training set was used since variance does not affect the prediction performance of this model. Step Akaike Information Criteria (AIC) was used to simplify feature amount without impacting the model's performance. Features are dropped as the AIC score decreases and feature dropping stops once the AIC score increases. 'CMAQ'and 'aod' were determined to be the most important features, and these predictors were used in the recipe. Then, model was fitted. Using the summary function, we found the LR model had a RMSE of 2.27 performance. After 10-fold cross validation, the RMSE score was over 2, indicating that this model's prediction performance is not good.
+For linear regression (LR), the unscaled training set was used since variance does not affect the prediction performance of this model. Step Akaike Information Criteria (AIC) was used to simplify feature amount without impacting the model's performance. Features are dropped as the AIC score decreases and feature dropping stops once the AIC score increases. 'CMAQ'and 'aod' were determined to be the most important features, and these predictors were used in the recipe. Then, model was fitted. Using the summary function, we found the LR model had a RMSE of 2.27 performance. After 10-fold cross validation, the RMSE score was over 1, indicating that this model's prediction performance is not good.
 
 ```{r LinearRegression}
 set.seed(123)
@@ -396,7 +396,7 @@ loc = test_prediction |> dplyr::select(.pred, value, CMAQ, lat, lon, county_area
 loc |> filter(state=='Oregon' | state=='Iowa' | state=='Virginia') |> group_by(state) |> summarise(mon=n())
 ```
 
-Based on the test set performance, it seems that our model gives the closest prediction for both Iowa and Virginia  The model gives the furthest prediction for Oregon. We hypothesize that the model gives bad performance for Oregon because despite being clearly larger than both Iowa and Virginia, it has the same number of monitors as the latter states, making the data less representative of the variation in PM2.5 concentration for the state.
+Based on the test set performance, it seems that our model gives the closest prediction for both Iowa and Virginia  The model gives the furthest prediction for Oregon. We hypothesize that the model gives bad performance for Oregon because despite being clearly larger than both Iowa and Virginia, it has the same number of monitors as the latter states, making the data less representative of the variation in PM2.5 concentration for the state for the model to make a good prediction based on the features we chose.
 
 **2. What variables might predict where your model performs well or not? For example, are their regions of the country where the model does better or worse? Are there variables that are not included in this dataset that you think might improve the model performance if they were included in your model?**
 
@@ -408,7 +408,7 @@ loc |> filter(diff<0.5) |> ggplot(aes(y=state)) + geom_bar()
 loc |> filter(diff>=0.5) |> ggplot(aes(y=state)) + geom_bar()
 ```
 
-Indiana, Ohio, Iowa, and Alabama most frequently compared to the other states. Our model also gives the furthers predictions for California, Colorado, Kentucky, Pennsylvania, and Texas most frequently. We noticed that some of these states where our model's prediction performance was bad were on the larger side. We hypothesize that the reason why our prediction performance is bad could be attributed to the possible increase of variance in ambient air pollution that comes with a larger state area or that the model has poor outlier handling.
+'CMAQ', 'county_area', and 'aod' might predict where our model performs well or not. We define a good prediction by having an absolute difference of less than 0.5 between 'value' and '.pred'. Indiana, Ohio, Iowa, and Alabama most frequently have good predictions. So the model does fairly well at predicting some of the Midwest. Our model gives the furthest predictions for California, Colorado, Kentucky, Pennsylvania, and Texas most frequently. So our model does poorly at predicting the West and the South. We think that including the variables 'popdens_county', 'zcta', and 'log_nei_2008_pm25_sum_10000' might improve the model performance since they were the following variables listed as most important in our feature selection process.
 
 **3. There is interest in developing more cost-effect approaches to monitoring air pollution on the ground. Two candidates for replacing the use of ground-based monitors are numerical models like CMAQ and satellite-based observations such as AOD. How well do CMAQ and AOD predict ground-level concentrations of PM2.5? How does the prediction performance of your model change when CMAQ or AOD are included (or not included) in the model?**
 
