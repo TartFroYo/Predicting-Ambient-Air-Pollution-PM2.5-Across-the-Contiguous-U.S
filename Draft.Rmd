@@ -32,7 +32,7 @@ origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25
 ```
 
 ## Wrangling
-We split 80% of the origin dataset into training and 20% into testing. Then, we scaled the training datasets for PCA and kNN since both of these require little variance among the variables in the dataset. We omitted the 'id' and 'value' variables from the 'trained_scaled' dataset for PCA because the 'id' values for the monitors would not provide any useful insight on PM2.5 concentration and the 'value' itself is not a predictor. Next, we chose 12 principal components with the highest explained variance since the sum of these components met our threshold of 80% explained variance. Then, we tried to see which variables contributed the most to 'value' and reduced the dimension of the 'trained_scale' dataset based on these variables. For kNN, we created a scaled training set 'train_knn' since extreme values would bias the distance calculation used in kNN modeling. For the other models, the regular 'train' set since the variables' values do not affect their prediction performance. Lastly, we did some exploratory analysis to see the linear relationship between longitude and latitude with PM2.5 concentration.
+We split 80% of the origin dataset into training and 20% into testing. Then, we scaled the training datasets for PCA and kNN since both of these require little variance among the variables in the dataset. We omitted the 'id' and 'value' variables from the 'trained_scaled' dataset for PCA because the 'id' values for the monitors would not provide any useful insight on PM2.5 concentration and 'value' is not a predictor. Next, we chose 12 principal components with the highest explained variance since the sum of these components met our threshold of 80% explained variance. Then, we tried to see which variables contributed the most to 'value' and reduced the dimension of the 'trained_scale' dataset based on these variables. For kNN, we created a scaled training set 'train_knn' since extreme values would bias the distance calculation used in kNN modeling. The other models either used 'train' dataset since the variables' values do not affect their prediction performance or used a specially altered version of it. Lastly, we did some exploratory analysis to see the linear relationship between longitude and latitude with PM2.5 concentration.
 ```{r Predictors}
 set.seed(123)
 # Split origin dataset into 80/20
@@ -119,13 +119,11 @@ origin %>% ggplot(aes(x=lon, y=value)) +
 origin %>% ggplot(aes(x=lat, y=value)) + 
   geom_point() + geom_smooth() + 
   labs(title="PM2.5 Concentration vs Latitude", x="Latitude (Degrees)", y="PM2.5 (mu g/m^3)")
-
-origin %>% ggplot(aes(x=value, fill=state)) + geom_histogram() + facet_wrap(~state) + 
-  labs(title="PM2.5 Concentration", x="PM2.5 (mu g/m^3)", y="Frequency (Monitors)") + theme(legend.position='none')
 ```
 
 ## Predictor/Feature Selection
-We used random forest (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we took the top 10 important variables as input for the training set for our models. 
+We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 10 as input for the training set for our models. The top 10 important predictors were CMAQ, lat, county_area, lon, aod, popdens_county, zcta, log_nei_2008_pm25_sum_10000, and log_nei_2008_pm10_sum_10000.
+
 ```{r}
 # Use Random Forest for variable selection
 rfmodel = randomForest(value~., data=train[,2:50])
