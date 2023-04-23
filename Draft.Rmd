@@ -135,6 +135,7 @@ import10 = import[1:10,]
 ```
 
 ## Models 
+For linear regression (LR), the unscaled training set was used since variance does not affect the prediction performance of this model. Step Akaike Information Criteria (AIC) was used to simplify feature amount without impacting the model's performance. Features are dropped as the AIC score decreases and feature dropping stops once the AIC score increaes.  'CMAQ,' 'lat,' 'lon,' 'aod,' 'zcta,' and 'log_nei_2008_pm25_sum_10000' were determined to be the most important features, and these predictors were used in the recipe 'rec1.' Then, model was fitted and the summary of the model had a RMSE of 2.22 performance of the linear regression model. After sampling on 10 subsets of the training set, the RMSE score was 2.21, indicating that this model's prediction performance is not good.
 ### 1. Linear Regression
 ```{r LinearRegression}
 set.seed(123)
