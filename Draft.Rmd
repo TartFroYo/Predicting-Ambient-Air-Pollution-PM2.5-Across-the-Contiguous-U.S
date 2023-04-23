@@ -33,6 +33,7 @@ origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25
 
 ## Wrangling
 We split 80% of the origin dataset into training and 20% into testing. Then, we scaled the training datasets for PCA and kNN since both of these require little variance among the variables in the dataset. We omitted the 'id' and 'value' variables from the 'trained_scaled' dataset for PCA because the 'id' values for the monitors would not provide any useful insight on PM2.5 concentration and 'value' is not a predictor. Next, we chose 12 principal components with the highest explained variance since the sum of these components met our threshold of 80% explained variance. Then, we tried to see which variables contributed the most to 'value' and reduced the dimension of the 'trained_scale' dataset based on these variables. For kNN, we created a scaled training set 'train_knn' since extreme values would bias the distance calculation used in kNN modeling. The other models either used 'train' dataset since the variables' values do not affect their prediction performance or used a specially altered version of it. Lastly, we did some exploratory analysis to see the linear relationship between longitude and latitude with PM2.5 concentration.
+
 ```{r Predictors}
 set.seed(123)
 # Split origin dataset into 80/20
@@ -122,7 +123,7 @@ origin %>% ggplot(aes(x=lat, y=value)) +
 ```
 
 ## Predictor/Feature Selection
-We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 10 as input for the training set for our models. The top 10 important predictors were CMAQ, lat, county_area, lon, aod, popdens_county, zcta, log_nei_2008_pm25_sum_10000, and log_nei_2008_pm10_sum_10000.
+We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 10 as input for the training set for our models. The top 10 important predictors were 'CMAQ', 'lat', 'county_area', 'lon', 'aod', 'popdens_county', 'zcta', 'log_nei_2008_pm25_sum_10000', and 'log_nei_2008_pm10_sum_10000'.
 
 ```{r}
 # Use Random Forest for variable selection
@@ -135,8 +136,9 @@ import10 = import[1:10,]
 ```
 
 ## Models 
-For linear regression (LR), the unscaled training set was used since variance does not affect the prediction performance of this model. Step Akaike Information Criteria (AIC) was used to simplify feature amount without impacting the model's performance. Features are dropped as the AIC score decreases and feature dropping stops once the AIC score increaes.  'CMAQ,' 'lat,' 'lon,' 'aod,' 'zcta,' and 'log_nei_2008_pm25_sum_10000' were determined to be the most important features, and these predictors were used in the recipe 'rec1.' Then, model was fitted and the summary of the model had a RMSE of 2.22 performance of the linear regression model. After sampling on 10 subsets of the training set, the RMSE score was 2.21, indicating that this model's prediction performance is not good.
 ### 1. Linear Regression
+For linear regression (LR), the unscaled training set was used since variance does not affect the prediction performance of this model. Step Akaike Information Criteria (AIC) was used to simplify feature amount without impacting the model's performance. Features are dropped as the AIC score decreases and feature dropping stops once the AIC score increases.  'CMAQ,' 'lat,' 'lon,' 'aod,' 'zcta,' and 'log_nei_2008_pm25_sum_10000' were determined to be the most important features, and these predictors were used in the recipe. Then, model was fitted. Using the summary function, we found the LR model had a RMSE of 2.22 performance. After sampling on 10 subsets of the training set, the RMSE score was 2.21, indicating that this model's prediction performance is not good.
+
 ```{r LinearRegression}
 set.seed(123)
 # Fit model and get summary
@@ -174,9 +176,9 @@ res1 %>%
     collect_metrics()
 ```
 
+### 2. K-Nearest Neighbors
 
-
-We first found the ideal number of k neighbors. This was determined by finding the square root of the number of observations, which was rounded to be 26. We fit the model on the training set data and checked its performance using two methods: one is fitting the model to extracting the MAE and MSE and the other is k-fold cross validation. RMSE is the square root of MSE and we were able to confirm its value in the cross-validation by comparing it to the square root of MSE attained from the first method.
+We first found the ideal number of k neighbors. This was determined by finding the square root of the number of observations, which was rounded to be 26. We fit the model on the training set data and checked its performance using two methods: the first was fitting the model to extracting the MAE and MSE and the second was k-fold cross validation. RMSE is the square root of MSE and we were able to confirm its value in the cross-validation by comparing it to the square root of MSE attained from the first method.
 
 ```{r kNearestNeighbors}
 # kNN uses scaled data called train_knn
@@ -214,6 +216,7 @@ res2 %>%
     collect_metrics()
 ```
 
+### 3. Extreme Gradient Boost
 Preprocessing requirements
 xgboost does not have a means to translate factor predictors to grouped splits. Factor/categorical predictors need to be converted to numeric values (e.g., dummy or indicator variables) for this engine. When using the formula method via fit.model_spec(), parsnip will convert factor columns to indicators using a one-hot encoding.
 
@@ -284,6 +287,9 @@ xgboost_score_train <- train_prediction %>%
   mutate(.estimate = format(round(.estimate, 2), big.mark = ","))
 xgboost_score_train
 ```
+
+### 4. Random FOrest Regression
+
 
 ```{r RandomForest}
 set.seed(123)
