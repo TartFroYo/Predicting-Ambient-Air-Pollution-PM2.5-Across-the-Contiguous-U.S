@@ -369,7 +369,11 @@ compare |> ggplot(aes(x=model, y=rmse)) +
   labs(title='RMSE of the Four Models') +
   theme_minimal()
 
+<<<<<<< HEAD
 # Fit XGB model to testing data
+=======
+# Fit XG Boost model to testing data
+>>>>>>> 2310bb92d1fdcf1734f35b771b9f5d5f0dc43279
 test_processed <- bake(preprocessing_recipe, new_data = testing(dat_split))
 
 # Get pred. metrics based on testing data
