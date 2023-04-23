@@ -221,7 +221,7 @@ res2 %>%
 
 ### 3. Extreme Gradient Boost Regression
 
-The Extreme Gradient Boosting (XGB) model performs by training weak learners, models that have low prediction accuracy, sequentially to become a single strong learner, a model that has strong prediction accuracy. We preprocess the training set to make the predictive modeling process more accurate and smoother by prepping (estimates the quantities for 'train_scaled') and baking (assigns prepped data to an object) the data. The aforementioned top 10 predictors were used in this preprocessing recipe. Moreover, the categorical variables were factored and features with no variance were removed before this data was baked. Then, this processed data is assigned to 'folds3' and resampled on 5 subsets of the training set. Using 'fold3', we tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was 0.56, indicating the XG Boosting is a good model. This website was used: [RBloggers](https://www.r-bloggers.com/2020/05/using-xgboost-with-tidymodels/)
+The Extreme Gradient Boosting (XGB) model performs by training weak learners, models that have low prediction accuracy, sequentially to become a single strong learner, a model that has strong prediction accuracy. We preprocess the training set to make the predictive modeling process more accurate and smoother by prepping (estimates the quantities for 'train_scaled') and baking (assigns prepped data to an object) the data. The aforementioned top 10 predictors were used in this preprocessing recipe. Moreover, the categorical variables were factored and features with no variance were removed before this data was baked. Then, this processed data is assigned to 'folds3' and resampled on 5 subsets of the training set. Using 'fold3', we tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was 0.55, indicating the XG Boosting is a good model. This website was used: [RBloggers](https://www.r-bloggers.com/2020/05/using-xgboost-with-tidymodels/)
 
 ```{r Xgboost}
 set.seed(123)
@@ -278,7 +278,7 @@ train_processed <- bake(preprocessing_recipe,  new_data = training(dat_split))
 train_prediction <- xgboost_model_final %>%
   # Fit the model on all the training data
   parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+log_nei_2008_pm10_sum_10000, data = train_processed) %>%
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data = train_processed) %>%
   # Predict value for the training data
   predict(new_data = train_processed) %>%
   bind_cols(training(dat_split))
@@ -289,7 +289,7 @@ xgboost_score_train <- train_prediction %>%
 xgboost_score_train
 ```
 
-### 4. Random FOrest Regression
+### 4. Random Forest Regression
 
 The Random Forest (RF) Regression model performs by training multiple different samples simultaneously and averages the outcome at the end for the final prediction. The randomness of these samples contribute to the prediction accuracy of this model. Similar to the XG Boosting Regression model, we preprocess the training set with the same features to improve make the predictive modeling process and then create model specifications. This processed data is assigned to 'folds4' and resampled on 5 subsets of the training set to tune the hyperparameters. We then perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was .62, indicating the RF is a good predictive model.
 
@@ -354,7 +354,7 @@ rf_score_train
 
 The following code creates a table containing the RMSE and RSQ estimates for each of our four models.
 
-```{r}
+```{r Best&Final}
 # Create table of prediction metrics from training data
 linreg = res1 |> collect_metrics() |> as.data.frame()
 linreg = cbind(linreg[,1], round(linreg[,3],2))
@@ -370,13 +370,19 @@ colnames(compare) = c('model','estimator','estimate')
 compare = as.data.frame(compare) |> pivot_wider(names_from=estimator, values_from=estimate)
 compare
 
+# Visual of rmse for our 4 models
+compare |> ggplot(aes(x=model, y=rmse)) + 
+  geom_bar(stat="identity") + 
+  labs(title='RMSE of the Four Models') +
+  theme_minimal()
+
 # Fit RF model to testing data
-test_processed <- bake(preprocessing_recipe,  new_data = testing(dat_split))
+test_processed <- bake(preprocessing_recipe, new_data = testing(dat_split))
 
 # Get pred. metrics based on testing data
 test_prediction = xgboost_model_final |> 
   parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=test_processed) |> 
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=train_processed) |> 
   predict(new_data=test_processed) |> 
   bind_cols(testing(dat_split))
 
@@ -386,13 +392,7 @@ xgb_score_test = test_prediction |>
 xgb_score_test
 ```
 
-As seen on the table, LR has the highest RMSE and lowest r-squared estimate. KNN has the second highest RMSE with a moderate R-squared estimate. And XGB has the lowest RMSE of 0.56 and the highest R-squared estimate of 0.96. Random Forest model has the both the second lowest RMSE and second highest R-squared estimate. Since we are choosing the best model by the best RMSE, which is the lowest one, the Xgboost model is thus the best and final model based on our procedure. After fitting the Xgboost model to the testing data, we find that its RMSE and R-squared is 0.61 and 0.94, respectively. Since we are trying to predict annual average ambient air pollution of a given monitor, then these statistics mean that the amount of error in our model's predictions is about 0.61 $\mu$g/m$^3$, and that the features we used in our model are able to explain 94% of the variance in the data, which means this model fits/predicts the data well.
-
-## Results
-```{r Results}
-compare |> ggplot(aes(y=rmse)) + geom_bar()
-
-```
+As seen on the table and visual, LR has the highest RMSE and lowest r-squared estimate. KNN has the second highest RMSE with a moderate R-squared estimate. And XGB has the lowest RMSE of 0.55 and the highest R-squared estimate of 0.96. Random Forest model has the both the second lowest RMSE and second highest R-squared estimate. Since we are choosing the best model by the best RMSE, which is the lowest one, the Xgboost model is thus the best and final model based on our procedure. After fitting the Xgboost model to the testing data, we find that its RMSE and R-squared is 1.23 and 0.73, respectively. Since we are trying to predict annual average ambient air pollution of a given monitor, then these statistics mean that the amount of error in our model's predictions is about 1.23 $\mu$g/m$^3$, and that the features we used in our model are able to explain 73% of the variance in the data, which means this model fits/predicts the data well.
 
 Your results should include 
 at least one visualization demonstrating the prediction performance of your models. 
@@ -409,11 +409,20 @@ at least one visualization demonstrating the prediction performance of your mode
 - no cmaq and no aod models
 
 ```{r Q3}
+# Fit RF model to testing data
 
 
+# Get pred. metrics based on testing data
+test_prediction = xgboost_model_final |> 
+  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=test_processed) |> 
+  predict(new_data=test_processed) |> 
+  bind_cols(testing(dat_split))
 
-
-
+xgb_score_test = test_prediction |> 
+  yardstick::metrics(value, .pred) |> 
+  mutate(.estimate=format(round(.estimate, 2), big.mark=","))
+xgb_score_test
 
 ```
 
