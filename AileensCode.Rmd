@@ -3,6 +3,8 @@ title: "Aileens Code"
 author: "Aileen Li"
 date: "2023-04-19"
 output: html_document
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -14,8 +16,6 @@ knitr::opts_chunk$set(echo = TRUE)
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
 
 ```{r delete}
 # Use Information Gain for variable selection
@@ -48,10 +48,399 @@ varimpAUC(cf1)
 ```
 
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
+# DRAFT W/ TOP10 NOT TOP5
+## Predicting Ambient Air Pollution (PM2.5) Across the Contiguous U.S.
+
+  Air pollution has consequences for everyone, most especially for those with pre-existing conditions. Air pollution is measured in tiny particles or droplets in the air that are two and one-half microns or less in width called PM2.5. So being able to predict the average PM2.5 concentrations ($\mu$g/m$^3$) will allow us to keep people most vulnerable safe as we look for and implement changes to improve the air quality in the region. We created four models to predict the annual average of ambient air pollution in a location based on the variables in the dataset. We chose our predictors using the Random Forest algorithm. And for our four models, we chose Linear Regression, K-Nearest Neighbors, Xgboosting, and Random Forest. Linear Regression models a linear relationship between the PM2.5 value in the atmosphere and the predictors. K-Nearest Neighbors returns predicted PM2.5 values based on their neighboring data points. Xgboosting predicts PM2.5 values by combining the estimates of a set of simpler, weaker models. Random forest makes an averaged prediction from a collection of independent decision trees. We hypothesize that the RMSE performance of the Xgboosting model will be the best, with a value of around 0.5.  
+
+```{r Library}
+library(tidyverse)
+library(tidymodels)
+library(broom)
+library(xgboost)
+library(caret)
+library(plotROC)
+library(randomForest)
+library(factoextra)
+library(MASS)
+library(ranger)
+library(doParallel)
+
+origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25_data.csv.gz")
+```
+
+## Wrangling
+
+We split 80% of the origin dataset into training and 20% into testing. Then, we scaled the training datasets for PCA and kNN since both of these require little variance among the variables in the dataset. We omitted the 'id' and 'value' variables from the 'trained_scaled' dataset for PCA because the 'id' values for the monitors would not provide any useful insight on PM2.5 concentration and 'value' is not a predictor. Next, we chose 12 principal components with the highest explained variance since the sum of these components met our threshold of 80% explained variance. Then, we tried to see which variables contributed the most to 'value' and reduced the dimension of the 'trained_scale' dataset based on these variables. For kNN, we created a scaled training set 'train_knn' since extreme values would bias the distance calculation used in kNN modeling. The other models either used 'train' dataset since the variables' values do not affect their prediction performance or used a specially altered version of it. Lastly, we did some exploratory analysis to see the linear relationship between longitude and latitude with PM2.5 concentration.
+
+```{r ExploratoryAnalysis}
+set.seed(123)
+# Split origin dataset into 80/20
+dat_split <- initial_split(origin, prop =.8)
+dat_split
+# Use 80% of data for training 
+train <- training(dat_split)
+test <- testing(dat_split)
+
+# Create standardize train data for kNN and PCA
+# Omit value and id variables since these should not be scaled
+# train_scaled for PCA
+train_scaled = train[,3:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) 
+#%>% cbind(state=train$state,county=train$county,city=train$city)
+
+# train_knn for kNN model
+train_knn = train[,2:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) %>% cbind(state=train$state,county=train$county,city=train$city)
+
+# Calculate principal components on scaled training data
+pca_result <- train_scaled %>% dplyr::select(where(is.numeric)) %>%
+  prcomp()
+
+# Plot scree plot
+pca_result %>% fviz_eig()
+
+# Plot table to show explained variance % by PCs
+summary(pca_result)
+
+# Threshold of Explained Variance = 80%
+# Calculated the sum of PCs with highest explained variance until threshold was meant
+0.3253 + 0.09749 + 0.07984 + 0.06501 + 0.05196 + 0.04147 + 0.03445 +
+0.02926 + 0.02563 + 0.0220 + 0.02127 + 0.0188
+
+PC1 <- pca_result$rotation[,1]
+PC1_scores <- abs(PC1)
+PC1_scores_ordered <- sort(PC1_scores, decreasing = TRUE)
+names(PC1_scores_ordered)
+
+# Reduce dimension of dataset
+trunc <- pca_result$x[,1:12] %*% t(pca_result$rotation[,1:12])
+# Add the center (and re-scale) back to data 
+if(all(pca_result$scale != FALSE)){
+  trunc <- scale(trunc, center = FALSE , scale=1/pca_result$scale) 
+  } 
+if(all(pca_result$center != FALSE)){ 
+  trunc <- scale(trunc, center = -1 * pca_result$center, scale=FALSE) 
+  } 
+dim(trunc); dim(train_scaled)
+
+# unhelpful plot -- delete
+# plot(pca_result$x[,1], pca_result$x[,2])
+
+# Show which features have the most influence
+as_tibble(pca_result$rotation, 
+          rownames = "variable") %>% 
+    ggplot(aes(variable, PC1)) +
+    geom_point() +
+    coord_flip()
+
+as_tibble(pca_result$rotation, 
+          rownames = "variable") %>% 
+    ggplot(aes(variable, PC2)) +
+    geom_point() +
+    coord_flip()
+
+# Plot clusters between PC1 and PC2 using a biplot
+fviz_pca_var(pca_result)
+
+# Reduce dimension of dataset
+trunc <- pca_result$x[,1:12] %*% t(pca_result$rotation[,1:12])
+# Add the center (and re-scale) back to data 
+if(all(pca_result$scale != FALSE)){
+  trunc <- scale(trunc, center = FALSE , scale=1/pca_result$scale) 
+  } 
+if(all(pca_result$center != FALSE)){ 
+  trunc <- scale(trunc, center = -1 * pca_result$center, scale=FALSE) 
+  } 
+dim(trunc); dim(train_scaled)
+
+# Visualize linear relationship between predictors (lat, lon, state) and value
+origin %>% ggplot(aes(x=lon, y=value)) + 
+  geom_point() + geom_smooth() + 
+  labs(title="PM2.5 Concentration vs Longitude", x="Longitude (Degrees)", y="PM2.5 (mu g/m^3)")
+
+origin %>% ggplot(aes(x=lat, y=value)) + 
+  geom_point() + geom_smooth() + 
+  labs(title="PM2.5 Concentration vs Latitude", x="Latitude (Degrees)", y="PM2.5 (mu g/m^3)")
+```
+
+## Results
+### Predictor/Feature Extraction
+
+We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 10 as input for the training set for our models. The top 10 important predictors were 'CMAQ', 'lat', 'county_area', 'lon', 'aod', 'popdens_county', 'zcta', 'log_nei_2008_pm25_sum_10000', and 'log_nei_2008_pm10_sum_10000'. We will use these features to predict 'value' proceeding onwards. This website was used: [TowardDataScience](https://towardsdatascience.com/feature-selection-using-random-forest-26d7b747597f).
 
 ```{r}
-x=1
-knitr::kable(x)
+# Use Random Forest for variable selection
+rfmodel = randomForest(value~., data=train[,2:50])
+import=as.data.frame(randomForest::importance(rfmodel)) |> arrange(desc(IncNodePurity))
+import=tibble::rownames_to_column(import, 'variables')
+
+# take top 10 important variables
+import10 = import[1:10,]
 ```
+
+### Models 
+### 1. Linear Regression
+For linear regression (LR), the unscaled training set was used since variance does not affect the prediction performance of this model. Step Akaike Information Criteria (AIC) was used to simplify feature amount without impacting the model's performance. Features are dropped as the AIC score decreases and feature dropping stops once the AIC score increases. 'CMAQ', 'lat', 'lon', 'aod', 'zcta', and 'log_nei_2008_pm25_sum_10000' were determined to be the most important features, and these predictors were used in the recipe. Then, model was fitted. Using the summary function, we found the LR model had a RMSE of 2.22 performance. After 10-fold cross validation, the RMSE score was 2.21, indicating that this model's prediction performance is not good.
+
+```{r LinearRegression}
+set.seed(123)
+# Fit model and get summary
+fit_lm = lm(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=train)
+step <- stepAIC(fit_lm, direction="backward", trace=TRUE)
+# Drops county_area, popdens_county, fips, and log_nei_2008_pm25_sum_10000
+
+# Create the recipe for all models
+rec1 <- train %>% 
+    recipe(value ~ CMAQ+lat+lon+aod+zcta+log_nei_2008_pm25_sum_10000) 
+
+# Linear regr. model
+model1 <- linear_reg() %>% 
+    set_engine("lm") %>% 
+    set_mode("regression")
+
+wf1 <- workflow() %>% 
+    add_recipe(rec1) %>% 
+    add_model(model1)
+# wf1
+
+res1 <- wf1 |> parsnip::fit(data = train)
+
+# Check performance of linear regression model on the training data
+res1 %>% 
+    extract_fit_engine() %>% 
+    summary()
+
+# Check linear regression model performance using cross-validation
+folds1 <- vfold_cv(train, v = 10)
+# folds1
+res1 <- fit_resamples(wf1, resamples = folds1)
+res1 %>% 
+    collect_metrics()
+```
+
+### 2. K-Nearest Neighbors
+
+The K-Nearest Neighbors (KNN) model finds the predicted 'value' by taking the average 'value' of its k neighbors. We first found the ideal number of k neighbors. This was determined by finding the square root of the number of observations, which was rounded to be 26. We fit the model on the training set data and checked its performance using two methods: the first was fitting the model to extracting the MAE and MSE and the second was 10-fold cross validation. RMSE is the square root of MSE and we were able to confirm its value in the cross-validation by comparing it to the square root of MSE attained from the first method. We found that after 10-fold cross validation, the RMSE was 1.78. This indicates that the model does not predict well since there is such a large amount of error.
+
+```{r kNearestNeighbors}
+# kNN uses scaled data called train_knn
+set.seed(123)
+# Find ideal k neighbors
+sqrt(nrow(train))
+
+# Create recipe
+rec2 = train_knn |> recipe(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000)
+
+# Create kNN model
+model2 <- nearest_neighbor(neighbors = 26) %>% 
+    set_engine("kknn") %>% 
+    set_mode("regression")
+
+# Create workflow
+  wf2 <- workflow() %>% 
+    add_recipe(rec2) %>% 
+    add_model(model2)
+
+# Fit the model on the training dataset using the `fit()` function
+res2 <- parsnip::fit(wf2, data = train_knn)
+
+# Check performance on the complete training data
+res2 %>% 
+    extract_fit_engine() %>% 
+    summary()
+
+# Check performance using cross-validation
+folds2 <- vfold_cv(train, v = 10)
+# folds
+res2 <- fit_resamples(wf2, resamples = folds2) # ERROR Assigned data `orig_rows` must be compatible with existing data.
+res2 %>% 
+    collect_metrics()
+```
+
+### 3. Extreme Gradient Boost Regression
+
+The Extreme Gradient Boosting (XGB) model performs by training weak learners, models that have low prediction accuracy, sequentially to become a single strong learner, a model that has strong prediction accuracy. We preprocess the training set to make the predictive modeling process more accurate and smoother by prepping (estimates the quantities for 'train_scaled') and baking (assigns prepped data to an object) the data. The aforementioned top 10 predictors were used in this preprocessing recipe. Moreover, the categorical variables were factored and features with no variance were removed before this data was baked. Then, this processed data is assigned to 'folds3' and resampled on 5 subsets of the training set. Using 'fold3', we tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was 0.55, indicating the XG Boosting is a good model. This website was used: [RBloggers](https://www.r-bloggers.com/2020/05/using-xgboost-with-tidymodels/)
+
+```{r Xgboost}
+set.seed(123)
+# Preprocessing recipe
+preprocessing_recipe <- 
+  recipes::recipe(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data = training(dat_split)) %>%
+  # Convert categorical variables to factors
+  recipes::step_string2factor(all_nominal()) %>%
+  # Combine low frequency factor levels
+  recipes::step_other(all_nominal(), threshold = 0.01) %>%
+  # Remove no variance predictors which provide no predictive information 
+  recipes::step_nzv(all_nominal()) %>%
+  prep()
+
+folds3 <- recipes::bake(preprocessing_recipe, new_data = training(dat_split)) %>%  
+  rsample::vfold_cv(v = 5)
+
+# XGBoost model specification
+xgboost_model <- parsnip::boost_tree(mode = "regression", trees = 1000, min_n = tune(),
+  tree_depth = tune(), learn_rate = tune(), loss_reduction = tune()) %>%
+  set_engine("xgboost", objective = "reg:squarederror")
+
+# Grid specification
+xgboost_params <- dials::parameters(min_n(), tree_depth(), learn_rate(), loss_reduction())
+
+xgboost_grid <- dials::grid_max_entropy(xgboost_params, size = 60)
+
+head(xgboost_grid)
+
+xgboost_wf <- workflows::workflow() %>%
+  add_model(xgboost_model) %>% 
+  add_formula(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000)
+
+# Hyperparameter tuning
+# Takes a long time to run, 5-8 min
+xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds3,
+  grid = xgboost_grid, metrics = yardstick::metric_set(rmse, rsq),
+  control = tune::control_grid(verbose = TRUE))
+
+# Find hyper parameter values which performed best at minimizing RMSE
+xgboost_tuned %>% tune::show_best(metric = "rmse") %>%knitr::kable()
+# Isolate the best performing hyperparameter values.
+xgboost_best_params <- xgboost_tuned %>% tune::select_best("rmse")
+xgboost_best_params
+
+# Final boost model
+xgboost_model_final <- xgboost_model %>% finalize_model(xgboost_best_params)
+
+# Eval. model performance on train data
+train_processed <- bake(preprocessing_recipe,  new_data = training(dat_split))
+
+train_prediction <- xgboost_model_final %>%
+  # Fit the model on all the training data
+  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data = train_processed) %>%
+  # Predict value for the training data
+  predict(new_data = train_processed) %>%
+  bind_cols(training(dat_split))
+
+xgboost_score_train <- train_prediction %>%
+  yardstick::metrics(value, .pred) %>%
+  mutate(.estimate = format(round(.estimate, 2), big.mark = ","))
+xgboost_score_train
+```
+
+### 4. Random Forest Regression
+
+The Random Forest (RF) Regression model performs by training multiple different samples simultaneously and averages the outcome at the end for the final prediction. The randomness of these samples contribute to the prediction accuracy of this model. Similar to the XG Boosting Regression model, we preprocess the training set with the same features to improve make the predictive modeling process and then create model specifications. This processed data is assigned to 'folds4' and resampled on 5 subsets of the training set to tune the hyperparameters. We then perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was .62, indicating the RF is a good predictive model.
+
+```{r RandomForest}
+set.seed(123)
+# Preprocessing recipe
+rec4 <- recipe(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=train) %>%
+  step_log(all_outcomes()) |> 
+  step_normalize(all_numeric_predictors()) |> 
+  step_dummy(all_nominal_predictors())
+
+#  Create model specification and wf
+rf_spec <- rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>%
+  set_engine("ranger", num.threads=7, importance="impurity") |> 
+  set_mode("regression")
+
+wf4 <- workflow() %>%
+  add_recipe(rec4) %>%
+  add_model(rf_spec)
+
+folds4 = recipes::bake(preprocessing_recipe, new_data = training(dat_split)) %>%  
+  rsample::vfold_cv(v = 5)
+
+# Space-filling designs grid
+rf_grid <- grid_latin_hypercube(min_n(), mtry(range = c(4, 9)), trees(), size = 60)
+
+# Tuning hyperparameters
+all_cores = parallel::detectCores(logical=FALSE)
+cl = makePSOCKcluster(all_cores)
+doParallel::registerDoParallel(cl)
+
+# Takes long time to load 2 min
+tune_res <- wf4 |> tune_grid(resamples = folds4, grid = rf_grid, metrics=metric_set(rmse,rsq), control = tune::control_grid(verbose = TRUE))
+# tune_res
+
+# Find hyper parameter values which performed best at minimizing RMSE
+tune_res %>% tune::show_best(metric = "rmse") %>%knitr::kable()
+# Isolate the best performing hyperparameter values.
+rf_best_params <- tune_res %>% tune::select_best("rmse")
+rf_best_params
+
+# Final Random Forest model
+rf_model_final <- rf_spec %>% finalize_model(rf_best_params)
+
+# Check Random Forest model performance
+train_processed2 <- bake(preprocessing_recipe,  new_data = training(dat_split))
+
+train_prediction2 = rf_model_final |> 
+  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=train_processed2) |> 
+  predict(new_data=train_processed2) |> 
+  bind_cols(training(dat_split))
+  
+rf_score_train = train_prediction2 |> 
+  yardstick::metrics(value, .pred) |> 
+  mutate(.estimate=format(round(.estimate, 2), big.mark=","))
+rf_score_train
+```
+
+### Best Model
+
+The following code creates a table containing the RMSE and RSQ estimates for each of our four models.
+
+```{r Best&Final}
+# Create table of prediction metrics from training data
+linreg = res1 |> collect_metrics() |> as.data.frame()
+linreg = cbind(linreg[,1], round(linreg[,3],2))
+knn = res2 %>% collect_metrics() |> as.data.frame()
+knn = cbind(knn[,1], round(knn[,3],2))
+xgboost = xgboost_score_train |> filter(.metric!='mae') |> as.data.frame()
+xgboost = cbind(xgboost[,1], xgboost[,3])
+ranfor = rf_score_train |> filter(.metric!='mae') |> as.data.frame()
+ranfor = cbind(ranfor[,1], ranfor[,3])
+
+compare = c('LR','LR','KNN','KNN','XGB','XGB','RF','RF') |> cbind(rbind(linreg,knn,xgboost,ranfor))
+colnames(compare) = c('model','estimator','estimate') 
+compare = as.data.frame(compare) |> pivot_wider(names_from=estimator, values_from=estimate)
+compare
+
+# Visual of rmse for our 4 models
+compare |> ggplot(aes(x=model, y=rmse)) + 
+  geom_bar(stat="identity") + 
+  labs(title='RMSE of the Four Models') +
+  theme_minimal()
+
+# Fit RF model to testing data
+test_processed <- bake(preprocessing_recipe, new_data = testing(dat_split))
+
+# Get pred. metrics based on testing data
+test_prediction = xgboost_model_final |> 
+  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
+             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=train_processed) |> 
+  predict(new_data=test_processed) |> 
+  bind_cols(testing(dat_split))
+
+xgb_score_test = test_prediction |> 
+  yardstick::metrics(value, .pred) |> 
+  mutate(.estimate=format(round(.estimate, 2), big.mark=","))
+xgb_score_test
+```
+
+As seen on the table and visual, LR has the highest RMSE and lowest r-squared estimate. KNN has the second highest RMSE with a moderate R-squared estimate. And XGB has the lowest RMSE of 0.55 and the highest R-squared estimate of 0.96. Random Forest model has the both the second lowest RMSE and second highest R-squared estimate. Since we are choosing the best model by the best RMSE, which is the lowest one, the Xgboost model is thus the best and final model based on our procedure. After fitting the Xgboost model to the testing data, we find that its RMSE and R-squared is 1.23 and 0.73, respectively. Since we are trying to predict annual average ambient air pollution of a given monitor, then these statistics mean that the amount of error in our model's predictions is about 1.23 $\mu$g/m$^3$, and that the features we used in our model are able to explain 73% of the variance in the data, which means this model does not fit/predict the data well.
+
+
+
+
+
+
+
 

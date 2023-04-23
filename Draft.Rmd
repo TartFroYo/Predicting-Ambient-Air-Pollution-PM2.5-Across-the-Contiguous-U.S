@@ -126,7 +126,7 @@ origin %>% ggplot(aes(x=lat, y=value)) +
 ## Results
 ### Predictor/Feature Extraction
 
-We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 10 as input for the training set for our models. The top 10 important predictors were 'CMAQ', 'lat', 'county_area', 'lon', 'aod', 'popdens_county', 'zcta', 'log_nei_2008_pm25_sum_10000', and 'log_nei_2008_pm10_sum_10000'. We will use these features to predict 'value' proceeding onwards. This website was used: [TowardDataScience](https://towardsdatascience.com/feature-selection-using-random-forest-26d7b747597f).
+We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 5 as input for the training set for our models. The top 5 important predictors were 'CMAQ', 'lat', 'county_area', 'lon', and 'aod'. We will use these features to predict 'value' proceeding onward. This website was used: [TowardDataScience](https://towardsdatascience.com/feature-selection-using-random-forest-26d7b747597f).
 
 ```{r}
 # Use Random Forest for variable selection
@@ -135,24 +135,23 @@ import=as.data.frame(randomForest::importance(rfmodel)) |> arrange(desc(IncNodeP
 import=tibble::rownames_to_column(import, 'variables')
 
 # take top 10 important variables
-import10 = import[1:10,]
+import5 = import[1:5,]
 ```
 
 ### Models 
 ### 1. Linear Regression
-For linear regression (LR), the unscaled training set was used since variance does not affect the prediction performance of this model. Step Akaike Information Criteria (AIC) was used to simplify feature amount without impacting the model's performance. Features are dropped as the AIC score decreases and feature dropping stops once the AIC score increases. 'CMAQ', 'lat', 'lon', 'aod', 'zcta', and 'log_nei_2008_pm25_sum_10000' were determined to be the most important features, and these predictors were used in the recipe. Then, model was fitted. Using the summary function, we found the LR model had a RMSE of 2.22 performance. After 10-fold cross validation, the RMSE score was 2.21, indicating that this model's prediction performance is not good.
+For linear regression (LR), the unscaled training set was used since variance does not affect the prediction performance of this model. Step Akaike Information Criteria (AIC) was used to simplify feature amount without impacting the model's performance. Features are dropped as the AIC score decreases and feature dropping stops once the AIC score increases. 'CMAQ'and 'aod' were determined to be the most important features, and these predictors were used in the recipe. Then, model was fitted. Using the summary function, we found the LR model had a RMSE of 2.27 performance. After 10-fold cross validation, the RMSE score was over 2, indicating that this model's prediction performance is not good.
 
 ```{r LinearRegression}
 set.seed(123)
 # Fit model and get summary
-fit_lm = lm(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=train)
+fit_lm = lm(value ~ CMAQ+lat+county_area+lon+aod, data=train)
 step <- stepAIC(fit_lm, direction="backward", trace=TRUE)
-# Drops county_area, popdens_county, fips, and log_nei_2008_pm25_sum_10000
+# Keeps cmaq and aod
 
 # Create the recipe for all models
 rec1 <- train %>% 
-    recipe(value ~ CMAQ+lat+lon+aod+zcta+log_nei_2008_pm25_sum_10000) 
+    recipe(value ~ CMAQ+aod) 
 
 # Linear regr. model
 model1 <- linear_reg() %>% 
@@ -181,7 +180,7 @@ res1 %>%
 
 ### 2. K-Nearest Neighbors
 
-The K-Nearest Neighbors (KNN) model finds the predicted 'value' by taking the average 'value' of its k neighbors. We first found the ideal number of k neighbors. This was determined by finding the square root of the number of observations, which was rounded to be 26. We fit the model on the training set data and checked its performance using two methods: the first was fitting the model to extracting the MAE and MSE and the second was 10-fold cross validation. RMSE is the square root of MSE and we were able to confirm its value in the cross-validation by comparing it to the square root of MSE attained from the first method. We found that after 10-fold cross validation, the RMSE was 1.78. This indicates that the model does not predict well since there is such a large amount of error.
+The K-Nearest Neighbors (KNN) model finds the predicted 'value' by taking the average 'value' of its k neighbors. We first found the ideal number of k neighbors. This was determined by finding the square root of the number of observations, which was rounded to be 26. We fit the model on the training set data and checked its performance using two methods: the first was fitting the model to extracting the MAE and MSE and the second was 10-fold cross validation. RMSE is the square root of MSE and we were able to confirm its value in the cross-validation by comparing it to the square root of MSE attained from the first method. We found that after 10-fold cross validation, the RMSE was 1.84. This indicates that the model does not predict well since the amount of error is greater than 1.
 
 ```{r kNearestNeighbors}
 # kNN uses scaled data called train_knn
@@ -190,8 +189,7 @@ set.seed(123)
 sqrt(nrow(train))
 
 # Create recipe
-rec2 = train_knn |> recipe(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000)
+rec2 = train_knn |> recipe(value ~ CMAQ+lat+county_area+lon+aod)
 
 # Create kNN model
 model2 <- nearest_neighbor(neighbors = 26) %>% 
@@ -221,14 +219,13 @@ res2 %>%
 
 ### 3. Extreme Gradient Boost Regression
 
-The Extreme Gradient Boosting (XGB) model performs by training weak learners, models that have low prediction accuracy, sequentially to become a single strong learner, a model that has strong prediction accuracy. We preprocess the training set to make the predictive modeling process more accurate and smoother by prepping (estimates the quantities for 'train_scaled') and baking (assigns prepped data to an object) the data. The aforementioned top 10 predictors were used in this preprocessing recipe. Moreover, the categorical variables were factored and features with no variance were removed before this data was baked. Then, this processed data is assigned to 'folds3' and resampled on 5 subsets of the training set. Using 'fold3', we tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was 0.55, indicating the XG Boosting is a good model. This website was used: [RBloggers](https://www.r-bloggers.com/2020/05/using-xgboost-with-tidymodels/)
+The Extreme Gradient Boosting (XGB) model performs by training weak learners, models that have low prediction accuracy, sequentially to become a single strong learner, a model that has strong prediction accuracy. We preprocess the training set to make the predictive modeling process more accurate and smoother by prepping (estimates the quantities for 'train_scaled') and baking (assigns prepped data to an object) the data. The aforementioned top 10 predictors were used in this preprocessing recipe. Moreover, the categorical variables were factored and features with no variance were removed before this data was baked. Then, this processed data is assigned to 'folds3' and resampled on 5 subsets of the training set. Using 'fold3', we tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was 0.69, indicating the XG Boosting is an adequate model. This website was used: [RBloggers](https://www.r-bloggers.com/2020/05/using-xgboost-with-tidymodels/)
 
 ```{r Xgboost}
 set.seed(123)
 # Preprocessing recipe
 preprocessing_recipe <- 
-  recipes::recipe(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data = training(dat_split)) %>%
+  recipes::recipe(value ~ CMAQ+lat+county_area+lon+aod, data = training(dat_split)) %>%
   # Convert categorical variables to factors
   recipes::step_string2factor(all_nominal()) %>%
   # Combine low frequency factor levels
@@ -254,8 +251,7 @@ head(xgboost_grid)
 
 xgboost_wf <- workflows::workflow() %>%
   add_model(xgboost_model) %>% 
-  add_formula(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000)
+  add_formula(value ~ CMAQ+lat+county_area+lon+aod)
 
 # Hyperparameter tuning
 # Takes a long time to run, 5-8 min
@@ -277,8 +273,7 @@ train_processed <- bake(preprocessing_recipe,  new_data = training(dat_split))
 
 train_prediction <- xgboost_model_final %>%
   # Fit the model on all the training data
-  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data = train_processed) %>%
+  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod, data = train_processed) %>%
   # Predict value for the training data
   predict(new_data = train_processed) %>%
   bind_cols(training(dat_split))
@@ -291,16 +286,15 @@ xgboost_score_train
 
 ### 4. Random Forest Regression
 
-The Random Forest (RF) Regression model performs by training multiple different samples simultaneously and averages the outcome at the end for the final prediction. The randomness of these samples contribute to the prediction accuracy of this model. Similar to the XG Boosting Regression model, we preprocess the training set with the same features to improve make the predictive modeling process and then create model specifications. This processed data is assigned to 'folds4' and resampled on 5 subsets of the training set to tune the hyperparameters. We then perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was .62, indicating the RF is a good predictive model.
+The Random Forest (RF) Regression model performs by training multiple different samples simultaneously and averages the outcome at the end for the final prediction. The randomness of these samples contribute to the prediction accuracy of this model. Similar to the XG Boosting Regression model, we preprocess the training set with the same features to improve make the predictive modeling process and then create model specifications. This processed data is assigned to 'folds4' and resampled on 5 subsets of the training set to tune the hyperparameters. We then perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was 8.81, indicating the RF is not a good predictive model.
 
 ```{r RandomForest}
 set.seed(123)
 # Preprocessing recipe
-rec4 <- recipe(value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=train) %>%
+rec4 <- recipe(value ~ CMAQ+lat+county_area+lon+aod, data=train) %>%
   step_log(all_outcomes()) |> 
   step_normalize(all_numeric_predictors()) |> 
-  step_dummy(all_nominal_predictors())
+  step_dummy(all_nominal_predictors()) |> prep()
 
 #  Create model specification and wf
 rf_spec <- rand_forest(mtry = tune(), trees = tune(), min_n = tune()) %>%
@@ -311,7 +305,7 @@ wf4 <- workflow() %>%
   add_recipe(rec4) %>%
   add_model(rf_spec)
 
-folds4 = recipes::bake(preprocessing_recipe, new_data = training(dat_split)) %>%  
+folds4 = recipes::bake(rec4, new_data = training(dat_split)) %>%  
   rsample::vfold_cv(v = 5)
 
 # Space-filling designs grid
@@ -336,11 +330,10 @@ rf_best_params
 rf_model_final <- rf_spec %>% finalize_model(rf_best_params)
 
 # Check Random Forest model performance
-train_processed2 <- bake(preprocessing_recipe,  new_data = training(dat_split))
+train_processed2 <- bake(rec4,  new_data = training(dat_split))
 
 train_prediction2 = rf_model_final |> 
-  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=train_processed2) |> 
+  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod, data=train_processed2) |> 
   predict(new_data=train_processed2) |> 
   bind_cols(training(dat_split))
   
@@ -376,13 +369,12 @@ compare |> ggplot(aes(x=model, y=rmse)) +
   labs(title='RMSE of the Four Models') +
   theme_minimal()
 
-# Fit RF model to testing data
+# Fit XGB model to testing data
 test_processed <- bake(preprocessing_recipe, new_data = testing(dat_split))
 
 # Get pred. metrics based on testing data
 test_prediction = xgboost_model_final |> 
-  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=train_processed) |> 
+  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod, data=train_processed) |> 
   predict(new_data=test_processed) |> 
   bind_cols(testing(dat_split))
 
@@ -392,16 +384,31 @@ xgb_score_test = test_prediction |>
 xgb_score_test
 ```
 
-As seen on the table and visual, LR has the highest RMSE and lowest r-squared estimate. KNN has the second highest RMSE with a moderate R-squared estimate. And XGB has the lowest RMSE of 0.55 and the highest R-squared estimate of 0.96. Random Forest model has the both the second lowest RMSE and second highest R-squared estimate. Since we are choosing the best model by the best RMSE, which is the lowest one, the Xgboost model is thus the best and final model based on our procedure. After fitting the Xgboost model to the testing data, we find that its RMSE and R-squared is 1.23 and 0.73, respectively. Since we are trying to predict annual average ambient air pollution of a given monitor, then these statistics mean that the amount of error in our model's predictions is about 1.23 $\mu$g/m$^3$, and that the features we used in our model are able to explain 73% of the variance in the data, which means this model fits/predicts the data well.
-
-Your results should include 
-at least one visualization demonstrating the prediction performance of your models. 
+As seen on the table and visual, LR has the highest RMSE and lowest R-squared estimate. KNN has the second highest RMSE with a moderate R-squared estimate. And XGB has the lowest RMSE of 0.69 and the highest R-squared estimate of 0.93. Random Forest model has the both the second lowest RMSE and second highest R-squared estimate. Since we are choosing the best model by the best RMSE, which is the lowest one, the Xgboost model is thus the best and final model based on our procedure. After fitting the Xgboost model to the testing data, we find that its RMSE and R-squared is 1.39 and 0.66, respectively. Since we are trying to predict annual average ambient air pollution of a given monitor, then these statistics mean that the amount of error in our model's predictions is about 1.39 $\mu$g/m$^3$, and that the features we used in our model are able to explain 66% of the variance in the data, which means this model does not fit/predict the data well.
 
 **1. Based on test set performance, at what locations does your model give predictions that are closest and furthest from the observed values? What do you hypothesize are the reasons for the good or bad performance at these locations?** 
 
+```{r Q1}
+# Arrange obs.s by greatest diff
+loc = test_prediction |> dplyr::select(.pred, value, CMAQ, lat, lon, county_area, aod, state) |> mutate(diff=round(abs(value-.pred),2)) |> arrange(desc(diff))
+
+# Find number of obs.s per the 3 states
+loc |> filter(state=='Oregon' | state=='Iowa' | state=='Virginia') |> group_by(state) |> summarise(mon=n())
+```
+
+Based on the test set performance, it seems that our model gives the closest prediction for both Iowa and Virginia  The model gives the furthest prediction for Oregon. We hypothesize that the model gives bad performance for Oregon because despite being clearly larger than both Iowa and Virginia, it has the same number of monitors as the latter states, making the data less representative of the variation in PM2.5 concentration for the state.
 
 **2. What variables might predict where your model performs well or not? For example, are their regions of the country where the model does better or worse? Are there variables that are not included in this dataset that you think might improve the model performance if they were included in your model?**
 
+```{r Q2}
+# Visual for the most frequently close predictions by state
+loc |> filter(diff<0.5) |> ggplot(aes(y=state)) + geom_bar()
+
+# Visual for the most frequently furthest predictions by state
+loc |> filter(diff>=0.5) |> ggplot(aes(y=state)) + geom_bar()
+```
+
+Indiana, Ohio, Iowa, and Alabama most frequently compared to the other states. Our model also gives the furthers predictions for California, Colorado, Kentucky, Pennsylvania, and Texas most frequently. We noticed that some of these states where our model's prediction performance was bad were on the larger side. We hypothesize that the reason why our prediction performance is bad could be attributed to the possible increase of variance in ambient air pollution that comes with a larger state area or that the model has poor outlier handling.
 
 **3. There is interest in developing more cost-effect approaches to monitoring air pollution on the ground. Two candidates for replacing the use of ground-based monitors are numerical models like CMAQ and satellite-based observations such as AOD. How well do CMAQ and AOD predict ground-level concentrations of PM2.5? How does the prediction performance of your model change when CMAQ or AOD are included (or not included) in the model?**
 
@@ -410,8 +417,8 @@ at least one visualization demonstrating the prediction performance of your mode
 
 ```{r Q3}
 # Fit RF model to testing data
-
-
+max(origin$value)
+min(origin$value)
 # Get pred. metrics based on testing data
 test_prediction = xgboost_model_final |> 
   parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
@@ -425,8 +432,6 @@ xgb_score_test = test_prediction |>
 xgb_score_test
 
 ```
-
-
 
 **4. The dataset here did not include data from Alaska or Hawaii. Do you think your model will perform well or not in those two states? Explain your reasoning.**
 
