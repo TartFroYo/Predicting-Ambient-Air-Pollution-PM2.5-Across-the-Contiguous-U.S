@@ -124,7 +124,7 @@ origin %>% ggplot(aes(x=lat, y=value)) +
 
 ## Predictor/Feature Extraction
 
-We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 10 as input for the training set for our models. The top 10 important predictors were 'CMAQ', 'lat', 'county_area', 'lon', 'aod', 'popdens_county', 'zcta', 'log_nei_2008_pm25_sum_10000', and 'log_nei_2008_pm10_sum_10000'.
+We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 10 as input for the training set for our models. The top 10 important predictors were 'CMAQ', 'lat', 'county_area', 'lon', 'aod', 'popdens_county', 'zcta', 'log_nei_2008_pm25_sum_10000', and 'log_nei_2008_pm10_sum_10000'. This website was used [TowardDataScience](https://towardsdatascience.com/feature-selection-using-random-forest-26d7b747597f).
 
 ```{r}
 # Use Random Forest for variable selection
@@ -217,7 +217,7 @@ res2 %>%
     collect_metrics()
 ```
 
-### 3. Extreme Gradient Boost
+### 3. Extreme Gradient Boost Regression
 
 Preprocessing requirements
 xgboost does not have a means to translate factor predictors to grouped splits. Factor/categorical predictors need to be converted to numeric values (e.g., dummy or indicator variables) for this engine. When using the formula method via fit.model_spec(), parsnip will convert factor columns to indicators using a one-hot encoding.
