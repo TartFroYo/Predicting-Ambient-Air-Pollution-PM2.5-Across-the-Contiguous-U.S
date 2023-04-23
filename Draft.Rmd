@@ -134,7 +134,7 @@ rfmodel = randomForest(value~., data=train[,2:50])
 import=as.data.frame(randomForest::importance(rfmodel)) |> arrange(desc(IncNodePurity))
 import=tibble::rownames_to_column(import, 'variables')
 
-# take top 10 important variables
+# take top 5 important variables
 import5 = import[1:5,]
 ```
 
@@ -210,7 +210,7 @@ res2 %>%
     summary()
 
 # Check performance using cross-validation
-folds2 <- vfold_cv(train, v = 10)
+folds2 <- vfold_cv(train_knn, v = 10)
 # folds
 res2 <- fit_resamples(wf2, resamples = folds2) # ERROR Assigned data `orig_rows` must be compatible with existing data.
 res2 %>% 
@@ -408,44 +408,166 @@ loc |> filter(diff<0.5) |> ggplot(aes(y=state)) + geom_bar()
 loc |> filter(diff>=0.5) |> ggplot(aes(y=state)) + geom_bar()
 ```
 
-'CMAQ', 'county_area', and 'aod' might predict where our model performs well or not. We define a good prediction by having an absolute difference of less than 0.5 between 'value' and '.pred'. Indiana, Ohio, Iowa, and Alabama most frequently have good predictions. So the model does fairly well at predicting some of the Midwest. Our model gives the furthest predictions for California, Colorado, Kentucky, Pennsylvania, and Texas most frequently. So our model does poorly at predicting the West and the South. We think that including the variables 'popdens_county', 'zcta', and 'log_nei_2008_pm25_sum_10000' might improve the model performance since they were the following variables listed as most important in our feature selection process.
+'CMAQ', 'county_area', and 'aod' might predict where our model performs well or not. We define a good prediction by having an absolute difference of less than 0.5 between 'value' and '.pred'. Indiana, Ohio, Iowa, and Alabama most frequently have good predictions. So the model does fairly well at predicting some of the Midwest. Our model gives the furthest predictions for California, Colorado, Kentucky, Pennsylvania, and Texas most frequently. So our model does poorly at predicting the West and the South. We think that including historical data of ambient air pollution over the years would potentially improve the performance of the model because if we are able to track the air pollution over the years, we could get a better prediction for any given location.
 
 **3. There is interest in developing more cost-effect approaches to monitoring air pollution on the ground. Two candidates for replacing the use of ground-based monitors are numerical models like CMAQ and satellite-based observations such as AOD. How well do CMAQ and AOD predict ground-level concentrations of PM2.5? How does the prediction performance of your model change when CMAQ or AOD are included (or not included) in the model?**
 
-- create visualization showing how close features CMAQ and AOD predict values of PM2.5 to actual/observed values
 - no cmaq and no aod models
 
-```{r Q3}
-# Fit RF model to testing data
-max(origin$value)
-min(origin$value)
-# Get pred. metrics based on testing data
+```{r Q3-1}
+set.seed(123)
+# XGB model w/only cmaq and aod
+# Preprocessing recipe
+preprocessing_recipe <- 
+  recipes::recipe(value ~ CMAQ + aod, data = training(dat_split)) %>%
+  # Convert categorical variables to factors
+  recipes::step_string2factor(all_nominal()) %>%
+  # Combine low frequency factor levels
+  recipes::step_other(all_nominal(), threshold = 0.01) %>%
+  # Remove no variance predictors which provide no predictive information 
+  recipes::step_nzv(all_nominal()) %>%
+  prep()
+
+folds5 <- recipes::bake(preprocessing_recipe, new_data = training(dat_split)) %>%  
+  rsample::vfold_cv(v = 5)
+
+# XGBoost model specification
+xgboost_model <- parsnip::boost_tree(mode = "regression", trees = 1000, min_n = tune(),
+  tree_depth = tune(), learn_rate = tune(), loss_reduction = tune()) %>%
+  set_engine("xgboost", objective = "reg:squarederror")
+
+# Grid specification
+xgboost_params <- dials::parameters(min_n(), tree_depth(), learn_rate(), loss_reduction())
+
+xgboost_grid <- dials::grid_max_entropy(xgboost_params, size = 60)
+
+head(xgboost_grid)
+
+xgboost_wf <- workflows::workflow() %>%
+  add_model(xgboost_model) %>% 
+  add_formula(value ~ CMAQ+aod)
+
+# Hyperparameter tuning
+# Takes a long time to run, 5-8 min
+xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds5,
+  grid = xgboost_grid, metrics = yardstick::metric_set(rmse, rsq),
+  control = tune::control_grid(verbose = TRUE))
+
+# Find hyper parameter values which performed best at minimizing RMSE
+xgboost_tuned %>% tune::show_best(metric = "rmse") %>%knitr::kable()
+# Isolate the best performing hyperparameter values.
+xgboost_best_params <- xgboost_tuned %>% tune::select_best("rmse")
+xgboost_best_params
+
+# Final boost model
+xgboost_model_final <- xgboost_model %>% finalize_model(xgboost_best_params)
+
+# Eval. model performance on train data
+test_processed <- bake(preprocessing_recipe,  new_data = testing(dat_split))
+train_processed <- bake(preprocessing_recipe,  new_data = training(dat_split))
+
 test_prediction = xgboost_model_final |> 
-  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod+popdens_county+zcta+
-             log_nei_2008_pm25_sum_10000+fips+log_nei_2008_pm10_sum_10000, data=test_processed) |> 
+  parsnip::fit(formula = value ~ CMAQ+aod, data=train_processed) |> 
   predict(new_data=test_processed) |> 
   bind_cols(testing(dat_split))
 
-xgb_score_test = test_prediction |> 
+xgb_q3p1 = test_prediction |> 
   yardstick::metrics(value, .pred) |> 
   mutate(.estimate=format(round(.estimate, 2), big.mark=","))
-xgb_score_test
-
+xgb_q3p1
 ```
 
-**4. The dataset here did not include data from Alaska or Hawaii. Do you think your model will perform well or not in those two states? Explain your reasoning.**
+```{r Q3-2}
+set.seed(123)
+# XGB model w/o cmaq and aod
+# Preprocessing recipe
+preprocessing_recipe <- 
+  recipes::recipe(value ~ lat+county_area+lon, data = training(dat_split)) %>%
+  # Convert categorical variables to factors
+  recipes::step_string2factor(all_nominal()) %>%
+  # Combine low frequency factor levels
+  recipes::step_other(all_nominal(), threshold = 0.01) %>%
+  # Remove no variance predictors which provide no predictive information 
+  recipes::step_nzv(all_nominal()) %>%
+  prep()
 
+folds6 <- recipes::bake(preprocessing_recipe, new_data = training(dat_split)) %>%  
+  rsample::vfold_cv(v = 5)
+
+# XGBoost model specification
+xgboost_model <- parsnip::boost_tree(mode = "regression", trees = 1000, min_n = tune(),
+  tree_depth = tune(), learn_rate = tune(), loss_reduction = tune()) %>%
+  set_engine("xgboost", objective = "reg:squarederror")
+
+# Grid specification
+xgboost_params <- dials::parameters(min_n(), tree_depth(), learn_rate(), loss_reduction())
+
+xgboost_grid <- dials::grid_max_entropy(xgboost_params, size = 60)
+
+head(xgboost_grid)
+
+xgboost_wf <- workflows::workflow() %>%
+  add_model(xgboost_model) %>% 
+  add_formula(value ~ lat+county_area+lon)
+
+# Hyperparameter tuning
+# Takes a long time to run, 5-8 min
+xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds6,
+  grid = xgboost_grid, metrics = yardstick::metric_set(rmse, rsq),
+  control = tune::control_grid(verbose = TRUE))
+
+# Find hyper parameter values which performed best at minimizing RMSE
+xgboost_tuned %>% tune::show_best(metric = "rmse") %>%knitr::kable()
+# Isolate the best performing hyperparameter values.
+xgboost_best_params <- xgboost_tuned %>% tune::select_best("rmse")
+xgboost_best_params
+
+# Final boost model
+xgboost_model_final <- xgboost_model %>% finalize_model(xgboost_best_params)
+
+# Eval. model performance on train data
+test_processed <- bake(preprocessing_recipe,  new_data = testing(dat_split))
+
+test_prediction = xgboost_model_final |> 
+  parsnip::fit(formula = value ~ lat+county_area+lon, data=train_processed) |> 
+  predict(new_data=test_processed) |> 
+  bind_cols(testing(dat_split))
+
+xgb_q3p2 = test_prediction |> 
+  yardstick::metrics(value, .pred) |> 
+  mutate(.estimate=format(round(.estimate, 2), big.mark=","))
+xgb_q3p2
+```
+
+
+
+
+**4. The dataset here did not include data from Alaska or Hawaii. Do you think your model will perform well or not in those two states? Explain your reasoning.**
+EDIT THIS
 Given that the top 10 features were 'CMAQ,' 'lat,' 'county_area,' 'lon,' 'aod,' 'popdens_county,' 'zcta,' 'log_nei_2008_pm25_sum_10000,' 'fips,' and 'log_nei_2008_pm10_sum_10000,' we think that XG Boost model will perform well since the original dataset included states of varying sizes with different climates and pollution levels. Moreover, its RMSE score is 0.62 and R-squared is 0.94, indicating that the prediction performance of this model is good in relation to the other models. Since Hawaii and Alaska are almost polar opposites with the former being geographically smaller and having hotter climate, we suspect that the model will be able to predict PM2.5 concentration levels in Hawaii and Alaska if they were included in this dataset since the diversity but also inter-relatedness of the features in this dataset aids the model in predicting ambient air pollution in differing environments.
 
 ## Discussion
-Putting it all together, what did you learn from your data and your model performance?
+**Putting it all together, what did you learn from your data and your model performance? Answer your Question posed above, citing any supporting statistics, visualizations, or results from the data or your models.**
 
-• Answer your Question posed above, citing any supporting statistics, visualizations, or results from the data or your models.
 
-• Reflect on the process of conducting this project. What was challenging, what have you learned from the process itself?
+**Reflect on the process of conducting this project. What was challenging, what have you learned from the process itself?**
 
-• Reflect on the performance of your final prediction model. Did it perform as well as you originally expected? If not, why do you think it didn’t perform as well?
+**Reflect on the performance of your final prediction model. Did it perform as well as you originally expected? If not, why do you think it didn’t perform as well?**
 
-• Include acknowledgments for any help received. If a group project, report the contribution of each member (i.e. who did what?).
+**Include acknowledgments for any help received. If a group project, report the contribution of each member (i.e. who did what?).**
+
+## Acknowledgements
+**Aileen Li & Nyah Strickland:**
+- Intro
+
+- Wrangling
+
+- Results
+
+- Discussion
+
+- Formatting
+
+
 
 
