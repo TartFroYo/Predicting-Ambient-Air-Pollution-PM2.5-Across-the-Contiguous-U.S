@@ -563,6 +563,7 @@ Given that the top 5 features were 'CMAQ', 'lat', 'county_area', 'lon', and 'aod
 
 
 **Reflect on the process of conducting this project. What was challenging, what have you learned from the process itself?**
+The most challenging aspect of this project was figuring out the process to determine which predictors were the best to use for our models. We ran into many debugging issues and Googled a lot to resolve our uncertainties. We learned that finding the best predictors for a model can be a lengthy process and that running a new model (e.g. preprocessing steps for XG Boost) often may require lots of research into what is needed for the model to run before it can actually run.
 
 **Reflect on the performance of your final prediction model. Did it perform as well as you originally expected? If not, why do you think it didn’t perform as well?**
 
