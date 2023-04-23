@@ -126,7 +126,7 @@ origin %>% ggplot(aes(x=lat, y=value)) +
 ## Results
 ### Predictor/Feature Extraction
 
-We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 10 as input for the training set for our models. The top 10 important predictors were 'CMAQ', 'lat', 'county_area', 'lon', 'aod', 'popdens_county', 'zcta', 'log_nei_2008_pm25_sum_10000', and 'log_nei_2008_pm10_sum_10000'. We will use these features to predict 'value' proceeding onwards. This website was used:[TowardDataScience](https://towardsdatascience.com/feature-selection-using-random-forest-26d7b747597f).
+We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 10 as input for the training set for our models. The top 10 important predictors were 'CMAQ', 'lat', 'county_area', 'lon', 'aod', 'popdens_county', 'zcta', 'log_nei_2008_pm25_sum_10000', and 'log_nei_2008_pm10_sum_10000'. We will use these features to predict 'value' proceeding onwards. This website was used: [TowardDataScience](https://towardsdatascience.com/feature-selection-using-random-forest-26d7b747597f).
 
 ```{r}
 # Use Random Forest for variable selection
@@ -140,7 +140,7 @@ import10 = import[1:10,]
 
 ### Models 
 ### 1. Linear Regression
-For linear regression (LR), the unscaled training set was used since variance does not affect the prediction performance of this model. Step Akaike Information Criteria (AIC) was used to simplify feature amount without impacting the model's performance. Features are dropped as the AIC score decreases and feature dropping stops once the AIC score increases.  'CMAQ,' 'lat,' 'lon,' 'aod,' 'zcta,' and 'log_nei_2008_pm25_sum_10000' were determined to be the most important features, and these predictors were used in the recipe. Then, model was fitted. Using the summary function, we found the LR model had a RMSE of 2.22 performance. After sampling on 10 subsets of the training set, the RMSE score was 2.21, indicating that this model's prediction performance is not good.
+For linear regression (LR), the unscaled training set was used since variance does not affect the prediction performance of this model. Step Akaike Information Criteria (AIC) was used to simplify feature amount without impacting the model's performance. Features are dropped as the AIC score decreases and feature dropping stops once the AIC score increases. 'CMAQ', 'lat', 'lon', 'aod', 'zcta', and 'log_nei_2008_pm25_sum_10000' were determined to be the most important features, and these predictors were used in the recipe. Then, model was fitted. Using the summary function, we found the LR model had a RMSE of 2.22 performance. After 10-fold cross validation, the RMSE score was 2.21, indicating that this model's prediction performance is not good.
 
 ```{r LinearRegression}
 set.seed(123)
@@ -181,7 +181,7 @@ res1 %>%
 
 ### 2. K-Nearest Neighbors
 
-The K-Nearest Neighbors (KNN) model finds the predicted 'value' by taking the average 'value' of its k neighbors. We first found the ideal number of k neighbors. This was determined by finding the square root of the number of observations, which was rounded to be 26. We fit the model on the training set data and checked its performance using two methods: the first was fitting the model to extracting the MAE and MSE and the second was 10-fold cross validation. RMSE is the square root of MSE and we were able to confirm its value in the cross-validation by comparing it to the square root of MSE attained from the first method. We found that after 10-fold cross validation, the RMSE was 1.78. This indicates that the model does not predict well.
+The K-Nearest Neighbors (KNN) model finds the predicted 'value' by taking the average 'value' of its k neighbors. We first found the ideal number of k neighbors. This was determined by finding the square root of the number of observations, which was rounded to be 26. We fit the model on the training set data and checked its performance using two methods: the first was fitting the model to extracting the MAE and MSE and the second was 10-fold cross validation. RMSE is the square root of MSE and we were able to confirm its value in the cross-validation by comparing it to the square root of MSE attained from the first method. We found that after 10-fold cross validation, the RMSE was 1.78. This indicates that the model does not predict well since there is such a large amount of error.
 
 ```{r kNearestNeighbors}
 # kNN uses scaled data called train_knn
@@ -221,7 +221,7 @@ res2 %>%
 
 ### 3. Extreme Gradient Boost Regression
 
-The Extreme Gradient Boosting (XGB) model performs by training weak learners, models that have low prediction accuracy, sequentially to become a single strong learner, a model that has strong prediction accuracy. We preprocess the training set to make the predictive modeling process more accurate and smoother by prepping (estimates the quantities for 'train_scaled') and baking (assigns prepped data to an object) the data. The aforementioned top 10 predictors were used in this preprocessing recipe. Moreover, the categorical variables were factored and features with no variance were removed before this data was baked. Then, this processed data is assigned to 'folds3' and resampled on 5 subsets of the training set. We tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was .42, indicating the XG Boosting is a good model. This website was used:[RBloggers](https://www.r-bloggers.com/2020/05/using-xgboost-with-tidymodels/)
+The Extreme Gradient Boosting (XGB) model performs by training weak learners, models that have low prediction accuracy, sequentially to become a single strong learner, a model that has strong prediction accuracy. We preprocess the training set to make the predictive modeling process more accurate and smoother by prepping (estimates the quantities for 'train_scaled') and baking (assigns prepped data to an object) the data. The aforementioned top 10 predictors were used in this preprocessing recipe. Moreover, the categorical variables were factored and features with no variance were removed before this data was baked. Then, this processed data is assigned to 'folds3' and resampled on 5 subsets of the training set. Using 'fold3', we tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was .42, indicating the XG Boosting is a good model. This website was used: [RBloggers](https://www.r-bloggers.com/2020/05/using-xgboost-with-tidymodels/)
 
 ```{r Xgboost}
 set.seed(123)
@@ -290,7 +290,8 @@ xgboost_score_train
 ```
 
 ### 4. Random FOrest Regression
-The Random Forest (RF) Regression model performs by training multiple different samples simultaneously and averages the outcome at the end for the final prediction. The randomness of these samples contribute to the prediction accuracy of this model. Similar to the XG Boosting Regression model, we preprocess the training set with the same features to improve make the predictive modeling process and then create model specifications. This processed data is assigned to 'folds4' and resampled on 5 subsets of the training set. We tune the hyperparameters to make the modeling process more efficient and perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was .62, indicating the RF is a good predictive model.
+
+The Random Forest (RF) Regression model performs by training multiple different samples simultaneously and averages the outcome at the end for the final prediction. The randomness of these samples contribute to the prediction accuracy of this model. Similar to the XG Boosting Regression model, we preprocess the training set with the same features to improve make the predictive modeling process and then create model specifications. This processed data is assigned to 'folds4' and resampled on 5 subsets of the training set to tune the hyperparameters. We then perform grid specification to determine which hyperparameter values have high prediction accuracy (i.e. low prediction error). Next, we isolated the best hyperparameter values, so they can be used for the final boosting model. Lastly, we fitted the model and evaluated its prediction performance. Its RMSE score was .62, indicating the RF is a good predictive model.
 
 ```{r RandomForest}
 set.seed(123)
@@ -385,27 +386,41 @@ xgb_score_test = test_prediction |>
 xgb_score_test
 ```
 
-As seen on the table, LR has the highest RMSE and lowest r-squared estimate. KNN has the second highest RMSE with a moderate R-squared estimate. And XGB has the lowest RMSE of 0.42 and the highest R-squared estimate of 0.98. Random Forest model has the both the second lowest RMSE and second highest R-squared estimate. Since we are choosing the best model by the best RMSE, which is the lowest one, the Xgboost model is thus the best and final model based on our procedure. After fitting the Xgboost model to the testing data, we find that its RMSE and R-squared is 0.39 and 0.98 respectively. Since we are trying to predict annual average ambient air pollution of a given monitor, then these statistics mean that the amount of error in our model's predictions is about 0.39 $\mu$g/m$^3$, and that the features we used in our model are able to explain 98% of the variance in the data, which means this model fits the data well.
+As seen on the table, LR has the highest RMSE and lowest r-squared estimate. KNN has the second highest RMSE with a moderate R-squared estimate. And XGB has the lowest RMSE of 0.42 and the highest R-squared estimate of 0.98. Random Forest model has the both the second lowest RMSE and second highest R-squared estimate. Since we are choosing the best model by the best RMSE, which is the lowest one, the Xgboost model is thus the best and final model based on our procedure. After fitting the Xgboost model to the testing data, we find that its RMSE and R-squared is 0.39 and 0.98 respectively. Since we are trying to predict annual average ambient air pollution of a given monitor, then these statistics mean that the amount of error in our model's predictions is about 0.39 $\mu$g/m$^3$, and that the features we used in our model are able to explain 98% of the variance in the data, which means this model fits/predicts the data well.
 
 ## Results
+```{r Results}
+
+```
+
 Your results should include 
 at least one visualization demonstrating the prediction performance of your models. 
 
-1. Based on test set performance, at what locations does your model give predictions that
-are closest and furthest from the observed values? What do you hypothesize are the reasons for the good or bad performance at these locations?
+**1. Based on test set performance, at what locations does your model give predictions that are closest and furthest from the observed values? What do you hypothesize are the reasons for the good or bad performance at these locations?** 
 
-2. What variables might predict where your model performs well or not? For example, are their regions of the country where the model does better or worse? Are there variables
-that are not included in this dataset that you think might improve the model performance if they were included in your model?
 
-3. There is interest in developing more cost-effect approaches to monitoring air pollution
-on the ground. Two candidates for replacing the use of ground-based monitors are numerical models like CMAQ and satellite-based observations such as AOD. How well do
-CMAQ and AOD predict ground-level concentrations of PM2.5? How does the prediction performance of your model change when CMAQ or aod are included (or not included) in
-the model?
+**2. What variables might predict where your model performs well or not? For example, are their regions of the country where the model does better or worse? Are there variables that are not included in this dataset that you think might improve the model performance if they were included in your model?**
+
+
+**3. There is interest in developing more cost-effect approaches to monitoring air pollution on the ground. Two candidates for replacing the use of ground-based monitors are numerical models like CMAQ and satellite-based observations such as AOD. How well do CMAQ and AOD predict ground-level concentrations of PM2.5? How does the prediction performance of your model change when CMAQ or AOD are included (or not included) in the model?**
+
 - create visualization showing how close features CMAQ and AOD predict values of PM2.5 to actual/observed values
+- no cmaq and no aod models
 
-4. The dataset here did not include data from Alaska or Hawaii. Do you think your model
-will perform well or not in those two states? Explain your reasoning
-Given that the top 10 features were 'CMAQ,' 'lat,' 'county_area,' 'lon,' 'aod,' 'popdens_county,' 'zcta,' 'log_nei_2008_pm25_sum_10000,' 'fips,' and 'log_nei_2008_pm10_sum_10000,' we think that XG Boost model will perform well since the origin dataset included states of varying sizes and pollution levels. Moreover, its RMSE score is .42 and R^2 is .98, indicating that the prediction performance of this model is excellent. Since Hawaii and Alaska are almost polar opposites with the former being geographically smaller and having hotter climate, we suspect that the model will be able to predict PM2.5 concentration levels in Hawaii and Alaska if they were included in this dataset since the diversity but also interrelatedness in this dataset aids the model in learning the different environments in which pollution occurs.
+```{r Q3}
+
+
+
+
+
+
+```
+
+
+
+**4. The dataset here did not include data from Alaska or Hawaii. Do you think your model will perform well or not in those two states? Explain your reasoning.**
+
+Given that the top 10 features were 'CMAQ,' 'lat,' 'county_area,' 'lon,' 'aod,' 'popdens_county,' 'zcta,' 'log_nei_2008_pm25_sum_10000,' 'fips,' and 'log_nei_2008_pm10_sum_10000,' we think that XG Boost model will perform well since the original dataset included states of varying sizes with different climates and pollution levels. Moreover, its RMSE score is 0.42 and R-squared is 0.98, indicating that the prediction performance of this model is excellent. Since Hawaii and Alaska are almost polar opposites with the former being geographically smaller and having hotter climate, we suspect that the model will be able to predict PM2.5 concentration levels in Hawaii and Alaska if they were included in this dataset since the diversity but also inter-relatedness of the features in this dataset aids the model in predicting ambient air pollution in differing environments.
 
 ## Discussion
 Putting it all together, what did you learn from your data and your model performance?
