@@ -2,8 +2,10 @@
 title: "Predicting Ambient Air Pollution (PM2.5) Across the Contiguous U.S."
 author: "Aileen Li, Nyah Strickland"
 date: "2023-04-18"
-output: html_document
-editor_options: 
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
   chunk_output_type: console
 ---
 
@@ -51,67 +53,6 @@ train_scaled = train[,3:50] %>% dplyr::select(where(is.numeric)) %>% mutate(acro
 
 # train_knn for kNN model
 train_knn = train[,2:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) %>% cbind(state=train$state,county=train$county,city=train$city)
-
-# Calculate principal components on scaled training data
-pca_result <- train_scaled %>% dplyr::select(where(is.numeric)) %>%
-  prcomp()
-
-# Plot scree plot
-pca_result %>% fviz_eig()
-
-# Plot table to show explained variance % by PCs
-summary(pca_result)
-
-# Threshold of Explained Variance = 80%
-# Calculated the sum of PCs with highest explained variance until threshold was meant
-0.3253 + 0.09749 + 0.07984 + 0.06501 + 0.05196 + 0.04147 + 0.03445 +
-0.02926 + 0.02563 + 0.0220 + 0.02127 + 0.0188
-
-PC1 <- pca_result$rotation[,1]
-PC1_scores <- abs(PC1)
-PC1_scores_ordered <- sort(PC1_scores, decreasing = TRUE)
-names(PC1_scores_ordered)
-
-# Reduce dimension of dataset
-trunc <- pca_result$x[,1:12] %*% t(pca_result$rotation[,1:12])
-# Add the center (and re-scale) back to data 
-if(all(pca_result$scale != FALSE)){
-  trunc <- scale(trunc, center = FALSE , scale=1/pca_result$scale) 
-  } 
-if(all(pca_result$center != FALSE)){ 
-  trunc <- scale(trunc, center = -1 * pca_result$center, scale=FALSE) 
-  } 
-dim(trunc); dim(train_scaled)
-
-# unhelpful plot -- delete
-# plot(pca_result$x[,1], pca_result$x[,2])
-
-# Show which features have the most influence
-as_tibble(pca_result$rotation, 
-          rownames = "variable") %>% 
-    ggplot(aes(variable, PC1)) +
-    geom_point() +
-    coord_flip()
-
-as_tibble(pca_result$rotation, 
-          rownames = "variable") %>% 
-    ggplot(aes(variable, PC2)) +
-    geom_point() +
-    coord_flip()
-
-# Plot clusters between PC1 and PC2 using a biplot
-fviz_pca_var(pca_result)
-
-# Reduce dimension of dataset
-trunc <- pca_result$x[,1:12] %*% t(pca_result$rotation[,1:12])
-# Add the center (and re-scale) back to data 
-if(all(pca_result$scale != FALSE)){
-  trunc <- scale(trunc, center = FALSE , scale=1/pca_result$scale) 
-  } 
-if(all(pca_result$center != FALSE)){ 
-  trunc <- scale(trunc, center = -1 * pca_result$center, scale=FALSE) 
-  } 
-dim(trunc); dim(train_scaled)
 
 # Visualize linear relationship between predictors (lat, lon, state) and value
 origin %>% ggplot(aes(x=lon, y=value)) + 
@@ -550,18 +491,17 @@ Given that the top 5 features were 'CMAQ', 'lat', 'county_area', 'lon', and 'aod
 ## Discussion
 **Putting it all together, what did you learn from your data and your model performance? Answer your Question posed above, citing any supporting statistics, visualizations, or results from the data or your models.**
 
-We learned that understanding the disadvantages and advantages of each model is helpful toward understanding why a model fails or succeeds at the training and testing stages.
+We learned that we overfit our Xgboost model to the data, which is why the prediction performance was poor for the testing dataset. This can be seen in our model having an RMSE value of 1.38 despite the RMSE of the model fit to the training data being 0.23. In general, we learned that understanding the disadvantages and advantages of each model is helpful toward understanding why a model fails or succeeds at the training and testing stages. For instance, we learned the Xgboost is helpful for unbalanced data and that Random Forest Regression performs well for datasets with a lot of noise.
 
 **Reflect on the process of conducting this project. What was challenging, what have you learned from the process itself?**
 
-The most challenging aspect of this project was figuring out the process to determine which predictors were the best to use for our models. We ran into many debugging issues and Googled a lot to resolve our uncertainties. We learned that finding the best predictors for a model can be a lengthy process and that running a new model (e.g. preprocessing steps for XG Boost) often may require lots of research into what is needed for the model to run before it can actually run.
+The most challenging aspect of this project was figuring out the process to determine which predictors were the best to use for our models. We ran into many debugging issues and Googled a lot to resolve our uncertainties. We learned that finding the best predictors for a model can be a lengthy process and that running a new model (e.g. preprocessing and hyperparameter tuning steps for XG Boost and Random Forest Regression) often may require lots of research into what is needed for the model to run before it can actually run.
 
 **Reflect on the performance of your final prediction model. Did it perform as well as you originally expected? If not, why do you think it didn’t perform as well?**
 
 The RMSE of our model was 1.38 on the testing dataset, which means it does not predict well. It did not perform as well as we originally expected, especially since we saw that the RMSE of our model was 0.23 on the training dataset. We believe the model did not perform well because we overfit the model to the training data. This means that the model gives inaccurate predictions and cannot perform well for all types of new data, which is why despite the low RMSE on the training data, the model has poor prediction performance on the testing data.
 
 **Include acknowledgments for any help received. If a group project, report the contribution of each member (i.e. who did what?).**
-
 ## Acknowledgements
 **Aileen Li & Nyah Strickland:**
 - Intro
