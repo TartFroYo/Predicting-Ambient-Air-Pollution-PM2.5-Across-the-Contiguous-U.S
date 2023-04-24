@@ -3,20 +3,20 @@ title: "Predicting Ambient Air Pollution (PM2.5) Across the Contiguous U.S."
 author: "Aileen Li, Nyah Strickland"
 date: "2023-04-18"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 editor_options:
   chunk_output_type: console
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 ```
 ## Predicting Ambient Air Pollution (PM2.5) Across the Contiguous U.S.
 
 Air pollution has consequences for everyone, most especially for those with pre-existing conditions. Air pollution is measured in tiny particles or droplets in the air that are two and one-half microns or less in width called PM2.5. So being able to predict the average PM2.5 concentrations ($\mu$g/m$^3$) will allow us to keep people most vulnerable safe as we look for and implement changes to improve the air quality in the region. We created four models to predict the annual average of ambient air pollution in a location based on the variables in the dataset. We chose our predictors using the Random Forest algorithm. And for our four models, we chose Linear Regression, K-Nearest Neighbors, XG Boost, and Random Forest. Linear Regression models a linear relationship between the PM2.5 value in the atmosphere and the predictors. K-Nearest Neighbors returns predicted PM2.5 values based on their neighboring data points. XG Boost predicts PM2.5 values by combining the estimates of a set of simpler, weaker models. Random forest makes an averaged prediction from a collection of independent decision trees. We hypothesize that the RMSE performance of the XG Boost model will be the best, with a value of around 0.5.  
 
-```{r Library}
+```{r Library message=FALSE}
 library(tidyverse)
 library(tidymodels)
 library(broom)
@@ -64,7 +64,6 @@ origin %>% ggplot(aes(x=lat, y=value)) +
   labs(title="PM2.5 Concentration vs Latitude", x="Latitude (Degrees)", y="PM2.5 (mu g/m^3)")
 ```
 
-## Results
 ### Predictor/Feature Extraction
 
 We used the random forest algorithm (RF) to determine which variables would be the best predictors for our model since RF is good at using variance to determine which features would be most influential for a model's predictive performance. In other words, the more variability there is in a dataset, the better RF performs at predicting which variables contribute to the outcome by averaging the results of all trees at the end and this averaging reduces the model's variance. Since our dataset has a wide variety of predictors ranging from education attainment levels to poverty levels in a given monitor region to emission data, RF would be good at reducing the variance in our dataset. For a given feature, the lower its impurity levels are, the more important that feature is. As a result, we got an ordered list of important variables and took the top 5 as input for the training set for our models. The top 5 important predictors were 'CMAQ', 'lat', 'county_area', 'lon', and 'aod'. We will use these features to predict 'value' proceeding onward. This website was used: [TowardDataScience](https://towardsdatascience.com/feature-selection-using-random-forest-26d7b747597f).
@@ -87,7 +86,7 @@ For linear regression (LR), the unscaled training set was used since variance do
 set.seed(123)
 # Fit model and get summary
 fit_lm = lm(value ~ CMAQ+lat+county_area+lon+aod, data=train)
-step <- stepAIC(fit_lm, direction="backward", trace=TRUE)
+step <- stepAIC(fit_lm, direction="backward", trace=FALSE)
 # Keeps cmaq and aod
 
 # Create the recipe for all models
