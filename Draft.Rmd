@@ -12,23 +12,11 @@ editor_options:
 ```{r setup, include=FALSE} 
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 ```
-## Predicting Ambient Air Pollution (PM2.5) Across the Contiguous U.S.
-
 Air pollution has consequences for everyone, most especially for those with pre-existing conditions. Air pollution is measured in tiny particles or droplets in the air that are two and one-half microns or less in width called PM2.5. So being able to predict the average PM2.5 concentrations ($\mu$g/m$^3$) will allow us to keep people most vulnerable safe as we look for and implement changes to improve the air quality in the region. We created four models to predict the annual average of ambient air pollution in a location based on the variables in the dataset. We chose our predictors using the Random Forest algorithm. And for our four models, we chose Linear Regression, K-Nearest Neighbors, XG Boost, and Random Forest. Linear Regression models a linear relationship between the PM2.5 value in the atmosphere and the predictors. K-Nearest Neighbors returns predicted PM2.5 values based on their neighboring data points. XG Boost predicts PM2.5 values by combining the estimates of a set of simpler, weaker models. Random forest makes an averaged prediction from a collection of independent decision trees. We hypothesize that the RMSE performance of the XG Boost model will be the best, with a value of around 0.5.  
 
-```{r Library message=FALSE}
-library(tidyverse)
-library(tidymodels)
-library(broom)
-library(xgboost)
-library(caret)
-library(plotROC)
-library(randomForest)
-library(factoextra)
-library(MASS)
-library(ranger)
-library(doParallel)
-
+```{r Library}
+library(tidyverse);library(tidymodels);library(broom);library(xgboost);library(caret);library(plotROC)
+library(randomForest);library(factoextra);library(MASS);library(ranger);library(doParallel)
 origin <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25_data.csv.gz")
 ```
 
@@ -52,15 +40,16 @@ train_scaled = train[,3:50] %>% dplyr::select(where(is.numeric)) %>% mutate(acro
 #%>% cbind(state=train$state,county=train$county,city=train$city)
 
 # train_knn for kNN model
-train_knn = train[,2:50] %>% dplyr::select(where(is.numeric)) %>% mutate(across(fips:aod, scale)) %>% cbind(state=train$state,county=train$county,city=train$city)
+train_knn = train[,2:50] %>% 
+  dplyr::select(where(is.numeric)) %>% 
+  mutate(across(fips:aod, scale)) %>%
+  cbind(state=train$state,county=train$county,city=train$city)
 
 # Visualize linear relationship between predictors (lat, lon, state) and value
-origin %>% ggplot(aes(x=lon, y=value)) + 
-  geom_point() + geom_smooth() + 
+origin %>% ggplot(aes(x=lon, y=value)) + geom_point() + geom_smooth() + 
   labs(title="PM2.5 Concentration vs Longitude", x="Longitude (Degrees)", y="PM2.5 (mu g/m^3)")
 
-origin %>% ggplot(aes(x=lat, y=value)) + 
-  geom_point() + geom_smooth() + 
+origin %>% ggplot(aes(x=lat, y=value)) + geom_point() + geom_smooth() + 
   labs(title="PM2.5 Concentration vs Latitude", x="Latitude (Degrees)", y="PM2.5 (mu g/m^3)")
 ```
 
@@ -73,7 +62,6 @@ We used the random forest algorithm (RF) to determine which variables would be t
 rfmodel = randomForest(value~., data=train[,2:50])
 import=as.data.frame(randomForest::importance(rfmodel)) |> arrange(desc(IncNodePurity))
 import=tibble::rownames_to_column(import, 'variables')
-
 # take top 5 important variables
 import5 = import[1:5,]
 ```
@@ -101,21 +89,17 @@ model1 <- linear_reg() %>%
 wf1 <- workflow() %>% 
     add_recipe(rec1) %>% 
     add_model(model1)
-# wf1
 
 res1 <- wf1 |> parsnip::fit(data = train)
 
 # Check performance of linear regression model on the training data
-res1 %>% 
-    extract_fit_engine() %>% 
-    summary()
+res1 %>% extract_fit_engine() %>% summary()
 
 # Check linear regression model performance using cross-validation
 folds1 <- vfold_cv(train, v = 10)
 # folds1
 res1 <- fit_resamples(wf1, resamples = folds1)
-res1 %>% 
-    collect_metrics()
+res1 %>% collect_metrics()
 ```
 
 ### 2. K-Nearest Neighbors
@@ -145,16 +129,13 @@ model2 <- nearest_neighbor(neighbors = 26) %>%
 res2 <- parsnip::fit(wf2, data = train_knn)
 
 # Check performance on the complete training data
-res2 %>% 
-    extract_fit_engine() %>% 
-    summary()
+res2 %>% extract_fit_engine() %>% summary()
 
 # Check performance using cross-validation
 folds2 <- vfold_cv(train_knn, v = 10)
 # folds
-res2 <- fit_resamples(wf2, resamples = folds2) # ERROR Assigned data `orig_rows` must be compatible with existing data.
-res2 %>% 
-    collect_metrics()
+res2 <- fit_resamples(wf2, resamples = folds2)
+res2 %>% collect_metrics()
 ```
 
 ### 3. Extreme Gradient Boost Regression
@@ -187,20 +168,17 @@ xgboost_params <- dials::parameters(min_n(), tree_depth(), learn_rate(), loss_re
 
 xgboost_grid <- dials::grid_max_entropy(xgboost_params, size = 60)
 
-# head(xgboost_grid)
-
 xgboost_wf <- workflows::workflow() %>%
   add_model(xgboost_model) %>% 
   add_formula(value ~ CMAQ+lat+county_area+lon+aod)
 
-# Hyperparameter tuning
-# Takes a long time to run, 5-8 min
+# Hyperparameter tuning, Takes a long time to run, 5-8 min
 xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds3,
   grid = xgboost_grid, metrics = yardstick::metric_set(rmse, rsq),
   control = tune::control_grid(verbose = TRUE))
 
 # Find hyper parameter values which performed best at minimizing RMSE
-xgboost_tuned %>% tune::show_best(metric = "rmse") %>%knitr::kable()
+xgboost_tuned %>% tune::show_best(metric = "rmse")
 # Isolate the best performing hyperparameter values.
 xgboost_best_params <- xgboost_tuned %>% tune::select_best("rmse")
 xgboost_best_params
@@ -251,18 +229,18 @@ folds4 = recipes::bake(rec4, new_data = training(dat_split)) %>%
 # Space-filling designs grid
 rf_grid <- grid_latin_hypercube(min_n(), mtry(range(4,9)), trees(), size = 60)
 
-
 # Tuning hyperparameters
 all_cores = parallel::detectCores(logical=FALSE)
-cl = makePSOCKcluster(all_cores)
-doParallel::registerDoParallel(cl)
+cl = makePSOCKcluster(all_cores);doParallel::registerDoParallel(cl)
 
 # Takes long time to load 2 min
-tune_res <- wf4 |> tune_grid(resamples = folds4, grid = rf_grid, metrics=metric_set(rmse,rsq), control = tune::control_grid(verbose = TRUE))
-# tune_res
+tune_res <- wf4 |> tune_grid(resamples = folds4, 
+                             grid = rf_grid, 
+                             metrics=metric_set(rmse,rsq), 
+                             control = tune::control_grid(verbose = TRUE))
 
 # Find hyper parameter values which performed best at minimizing RMSE
-tune_res %>% tune::show_best(metric = "rmse") %>%knitr::kable()
+tune_res %>% tune::show_best(metric = "rmse")
 # Isolate the best performing hyperparameter values.
 rf_best_params <- tune_res %>% tune::select_best("rmse")
 rf_best_params
@@ -274,7 +252,8 @@ rf_model_final <- rf_spec %>% finalize_model(rf_best_params)
 train_processed2 <- bake(rec4,  new_data = training(dat_split))
 
 train_prediction2 = rf_model_final |> 
-  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod, data=train_processed2) |> 
+  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod,
+               data=train_processed2) |> 
   predict(new_data=train_processed2) |> 
   bind_cols(training(dat_split))
   
@@ -306,10 +285,8 @@ compare = as.data.frame(compare) |> pivot_wider(names_from=estimator, values_fro
 compare
 
 # Visual of rmse for our 4 models
-compare |> ggplot(aes(x=model, y=rmse)) + 
-  geom_bar(stat="identity") + 
-  labs(title='RMSE of the Four Models') +
-  theme_minimal()
+compare |> ggplot(aes(x=model, y=rmse)) + geom_bar(stat="identity") + 
+  labs(title='RMSE of the Four Models') + theme_minimal()
 
 # Final model
 # Fit XGB model to testing data
@@ -317,7 +294,8 @@ test_processed <- bake(rec3, new_data = testing(dat_split))
 
 # Get pred. metrics based on testing data
 test_prediction = xgboost_model_final |> 
-  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod, data=train_processed) |> 
+  parsnip::fit(formula = value ~ CMAQ+lat+county_area+lon+aod,
+               data=train_processed) |> 
   predict(new_data=test_processed) |> 
   bind_cols(testing(dat_split))
 
@@ -333,10 +311,14 @@ As seen on the table and visual, Random Forest has the highest RMSE and lowest R
 
 ```{r Q1}
 # Arrange obs.s by greatest diff
-loc = test_prediction |> dplyr::select(.pred, value, CMAQ, lat, lon, county_area, aod, state) |> mutate(diff=round(abs(value-.pred),2)) |> arrange(desc(diff))
+loc = test_prediction |> 
+  dplyr::select(.pred, value, CMAQ, lat, lon, county_area, aod, state) |>
+  mutate(diff=round(abs(value-.pred),2)) |> arrange(desc(diff))
 
 # Find number of obs.s per the 3 states
-loc |> filter(state=='Oregon' | state=='Iowa' | state=='Virginia') |> group_by(state) |> summarise(mon=n())
+loc |> 
+  filter(state=='Oregon' | state=='Iowa' | state=='Virginia') |>
+  group_by(state) |> summarise(mon=n())
 ```
 
 Based on the test set performance, it seems that our model gives the closest prediction for both Iowa and Virginia  The model gives the furthest prediction for Oregon. We hypothesize that the model gives bad performance for Oregon because despite being clearly larger than both Iowa and Virginia, it has the same number of monitors as the latter states, making the data less representative of the variation in PM2.5 concentration for the state for the model to make a good prediction based on the features we chose.
@@ -345,10 +327,13 @@ Based on the test set performance, it seems that our model gives the closest pre
 
 ```{r Q2}
 # Visual for the most frequently close predictions by state
-loc |> filter(diff<0.5) |> ggplot(aes(y=state)) + geom_bar()
+loc |>filter(diff<0.5) |> ggplot(aes(y=state)) + 
+  geom_bar() + 
+  labs(title='Most Frequent Close Predictions by State')
 
 # Visual for the most frequently furthest predictions by state
-loc |> filter(diff>=0.5) |> ggplot(aes(y=state)) + geom_bar()
+loc |> filter(diff>=0.5) |> ggplot(aes(y=state)) + 
+  geom_bar() + labs(title='Most Frequent Far Predictions by State')
 ```
 
 'CMAQ', 'county_area', and 'aod' might predict where our model performs well or not. We define a good prediction by having an absolute difference of less than 0.5 between 'value' and '.pred'. Indiana, Ohio, Iowa, and Alabama most frequently have good predictions. So the model does fairly well at predicting some of the Midwest. Our model gives the furthest predictions for California, Colorado, Kentucky, Pennsylvania, and Texas most frequently. So our model does poorly at predicting the West and the South. We think that including historical data of ambient air pollution over the years would potentially improve the performance of the model because if we are able to track the air pollution over the years, we could get a better prediction for any given location.
@@ -368,8 +353,7 @@ rec5 <-
   # Combine low frequency factor levels
   recipes::step_other(all_nominal(), threshold = 0.01) %>%
   # Remove no variance predictors which provide no predictive information 
-  recipes::step_nzv(all_nominal()) %>%
-  prep()
+  recipes::step_nzv(all_nominal()) %>% prep()
 
 folds5 <- recipes::bake(rec5, new_data = training(dat_split)) %>%  
   rsample::vfold_cv(v = 5)
@@ -381,10 +365,7 @@ xgboost_model <- parsnip::boost_tree(mode = "regression", trees = 1000, min_n = 
 
 # Grid specification
 xgboost_params <- dials::parameters(min_n(), tree_depth(), learn_rate(), loss_reduction())
-
 xgboost_grid <- dials::grid_max_entropy(xgboost_params, size = 60)
-
-head(xgboost_grid)
 
 xgboost_wf <- workflows::workflow() %>%
   add_model(xgboost_model) %>% 
@@ -397,7 +378,7 @@ xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds5,
   control = tune::control_grid(verbose = TRUE))
 
 # Find hyper parameter values which performed best at minimizing RMSE
-xgboost_tuned %>% tune::show_best(metric = "rmse") %>%knitr::kable()
+xgboost_tuned %>% tune::show_best(metric = "rmse")
 # Isolate the best performing hyperparameter values.
 xgboost_best_params <- xgboost_tuned %>% tune::select_best("rmse")
 xgboost_best_params
@@ -444,10 +425,7 @@ xgboost_model <- parsnip::boost_tree(mode = "regression", trees = 1000, min_n = 
 
 # Grid specification
 xgboost_params <- dials::parameters(min_n(), tree_depth(), learn_rate(), loss_reduction())
-
 xgboost_grid <- dials::grid_max_entropy(xgboost_params, size = 60)
-
-head(xgboost_grid)
 
 xgboost_wf <- workflows::workflow() %>%
   add_model(xgboost_model) %>% 
@@ -460,7 +438,7 @@ xgboost_tuned <- tune::tune_grid(object = xgboost_wf, resamples = folds8,
   control = tune::control_grid(verbose = TRUE))
 
 # Find hyper parameter values which performed best at minimizing RMSE
-xgboost_tuned %>% tune::show_best(metric = "rmse") %>%knitr::kable()
+xgboost_tuned %>% tune::show_best(metric = "rmse")
 # Isolate the best performing hyperparameter values.
 xgboost_best_params <- xgboost_tuned %>% tune::select_best("rmse")
 xgboost_best_params
@@ -503,6 +481,7 @@ The RMSE of our model was 1.38 on the testing dataset, which means it does not p
 **Include acknowledgments for any help received. If a group project, report the contribution of each member (i.e. who did what?).**
 ## Acknowledgements
 **Aileen Li & Nyah Strickland:**
+
 - Intro
 
 - Wrangling
