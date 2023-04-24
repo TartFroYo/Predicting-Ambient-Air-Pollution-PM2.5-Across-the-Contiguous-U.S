@@ -423,6 +423,8 @@ loc |> filter(diff>=0.5) |> ggplot(aes(y=state)) + geom_bar()
 
 **3. There is interest in developing more cost-effect approaches to monitoring air pollution on the ground. Two candidates for replacing the use of ground-based monitors are numerical models like CMAQ and satellite-based observations such as AOD. How well do CMAQ and AOD predict ground-level concentrations of PM2.5? How does the prediction performance of your model change when CMAQ or AOD are included (or not included) in the model?**
 
+The model with only 'CMAQ' and 'aod' as features has an RMSE of 1.99. Since it is greater than 1, this means that 'CMAQ' and 'aod' are not good predictors for annual ambient air pollution in a given location. The RMSE of our model on the test data is 1.38. The RMSE of our model without 'CMAQ' and 'aod' is 1.73. This means that the model without 'CMAQ' and 'aod' has the better prediction performance since its RMSE is lower than our original model.
+
 ```{r Q3-1}
 set.seed(123)
 # XGB model w/only cmaq and aod
@@ -548,11 +550,6 @@ res8 = test_prediction |>
   mutate(.estimate=format(round(.estimate, 2), big.mark=","))
 res8
 ```
-
-3. There is interest in developing more cost-effect approaches to monitoring air pollution on the ground. Two candidates for replacing the use of ground-based monitors are numerical models like CMAQ and satellite-based observations such as AOD. How well do CMAQ and AOD predict ground-level concentrations of PM2.5? How does the prediction performance of your model change when CMAQ or AOD are included (or not included) in the model?
-
-The model with only 'CMAQ' and 'aod' as features has an RMSE of 1.99. Since it is greater than 1, this means that 'CMAQ' and 'aod' are not good predictors for annual ambient air pollution in a given location. The RMSE of our model on the test data is 1.38. The RMSE of our model without 'CMAQ' and 'aod' is 1.73. This means that the model without 'CMAQ' and 'aod' has the better prediction performance since its RMSE is lower than our original model.
-
 
 **4. The dataset here did not include data from Alaska or Hawaii. Do you think your model will perform well or not in those two states? Explain your reasoning.**
 
