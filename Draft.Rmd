@@ -550,6 +550,7 @@ Given that the top 5 features were 'CMAQ', 'lat', 'county_area', 'lon', and 'aod
 ## Discussion
 **Putting it all together, what did you learn from your data and your model performance? Answer your Question posed above, citing any supporting statistics, visualizations, or results from the data or your models.**
 
+We learned that understanding the disadvantages and advantages of each model is helpful toward understanding why a model fails or succeeds at the training and testing stages.
 
 **Reflect on the process of conducting this project. What was challenging, what have you learned from the process itself?**
 
