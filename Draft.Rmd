@@ -566,6 +566,8 @@ Given that the top 5 features were 'CMAQ', 'lat', 'county_area', 'lon', and 'aod
 
 **Reflect on the performance of your final prediction model. Did it perform as well as you originally expected? If not, why do you think it didn’t perform as well?**
 
+The RMSE of our model was 1.38 on the testing dataset, which means it does not predict well. It did not perform as well as we originally expected, especially since we saw that the RMSE of our model was 0.23 on the training dataset. We believe the model did not perform well because we overfit the model to the training data. This means that the model gives inaccurate predictions and cannot perform well for all types of new data, which is why despite the low RMSE on the training data, the model has poor prediction performance on the testing data.
+
 **Include acknowledgments for any help received. If a group project, report the contribution of each member (i.e. who did what?).**
 
 ## Acknowledgements
